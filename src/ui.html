@@ -1,0 +1,946 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Search Launcher</title>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700&family=Inter:wght@400;500;600&family=Geist:wght@500;600&display=swap" rel="stylesheet" />
+
+    <!-- Material Symbols Outlined -->
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
+
+    <style>
+        /* ===== RESET & BASE ===== */
+        *, *::before, *::after {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            background: transparent !important;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            width: 100%;
+            height: auto;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        /* ===== SYSTEM THEME DESIGN TOKENS (DEFAULT: DARK MODE) ===== */
+        :root {
+            /* Colors - Dark Mode */
+            --bg-surface: rgba(28, 30, 30, 0.94);
+            --border-color: rgba(255, 255, 255, 0.12);
+            --border-top: rgba(255, 255, 255, 0.22);
+            --text-primary: #f3f4f6;
+            --text-secondary: #9ca3af;
+            --outline: #8e95a0;
+            --outline-variant: #44474e;
+            --primary: #0078d4;
+            --primary-container: #004a77;
+            --surface-variant: #303339;
+            --surface-container-low: #222429;
+            --input-bg: rgba(20, 20, 20, 0.5);
+            --input-border: rgba(255, 255, 255, 0.15);
+            --row-selected: rgba(255, 255, 255, 0.08);
+            --shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+            --icon-bg: #282a2d;
+            --highlight-color: #3b9eff;
+
+            /* Spacing */
+            --space-xs: 4px;
+            --space-sm: 8px;
+            --space-md: 16px;
+            --space-lg: 24px;
+            --space-xl: 40px;
+
+            /* Border Radius */
+            --radius-sm: 4px;
+            --radius: 8px;
+            --radius-lg: 16px;
+            --radius-xl: 24px;
+        }
+
+        /* ===== LIGHT MODE PREFERENCES ===== */
+        html.light {
+            /* Colors - Light Mode */
+            --bg-surface: rgba(250, 250, 250, 0.95);
+            --border-color: rgba(0, 0, 0, 0.08);
+            --border-top: rgba(255, 255, 255, 0.5);
+            --text-primary: #111827;
+            --text-secondary: #4b5563;
+            --outline: #717783;
+            --outline-variant: #c0c7d4;
+            --primary: #005faa;
+            --primary-container: #e6f0fa;
+            --surface-variant: #e2e2e2;
+            --surface-container-low: #f3f4f6;
+            --input-bg: rgba(255, 255, 255, 0.7);
+            --input-border: rgba(0, 0, 0, 0.15);
+            --row-selected: rgba(0, 0, 0, 0.05);
+            --shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+            --icon-bg: #ffffff;
+            --highlight-color: #005faa;
+        }
+
+        /* ===== MICA SURFACE ===== */
+        .mica-surface {
+            background-color: var(--bg-surface);
+            backdrop-filter: blur(25px);
+            -webkit-backdrop-filter: blur(25px);
+            border: 1px solid var(--border-color);
+            border-top: 1px solid var(--border-top);
+            border-left: 1px solid var(--border-top);
+            box-shadow: var(--shadow);
+            transition: background-color 200ms ease;
+        }
+
+        /* ===== LAUNCHER (MAIN CONTAINER) ===== */
+        #launcher {
+            max-width: 800px;
+            width: 100%;
+            margin: 0 auto;
+            border-radius: var(--radius-xl);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            transition: height 150ms cubic-bezier(0.2, 0.8, 0.2, 1);
+        }
+
+        /* Entrance / Exit scale + fade animations */
+        #launcher.launcher-hidden {
+            opacity: 0;
+            transform: scale(0.95);
+            pointer-events: none;
+        }
+
+        #launcher.launcher-visible {
+            opacity: 1;
+            transform: scale(1.0);
+            transition: opacity 150ms ease-out, transform 150ms ease-out;
+            transform-origin: top center;
+        }
+
+        #launcher.launcher-exit {
+            opacity: 0;
+            transition: opacity 120ms ease-in;
+            pointer-events: none;
+        }
+
+        /* ===== SEARCH BAR AREA ===== */
+        .search-area {
+            padding: var(--space-lg);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-sm);
+        }
+
+        /* ===== SEARCH INPUT WRAPPER ===== */
+        .search-input-wrapper {
+            display: flex;
+            align-items: center;
+            position: relative;
+            border-radius: var(--radius);
+            background: var(--input-bg);
+            border: 1px solid var(--input-border);
+            transition: all 200ms;
+        }
+
+        .search-input-wrapper:focus-within {
+            border-color: var(--outline);
+            box-shadow: 0 0 0 2px rgba(142, 149, 160, 0.25);
+        }
+
+        /* ===== SEARCH ICON ===== */
+        .search-icon {
+            position: absolute;
+            left: 16px;
+            color: var(--outline);
+            font-variation-settings: 'FILL' 0;
+            pointer-events: none;
+        }
+
+        /* ===== SEARCH INPUT ===== */
+        #search-input {
+            width: 100%;
+            background: transparent;
+            border: none;
+            outline: none;
+            padding: 16px 16px 16px 48px;
+            font-family: 'Inter', sans-serif;
+            font-size: 18px;
+            line-height: 28px;
+            font-weight: 400;
+            color: var(--text-primary);
+        }
+
+        #search-input::placeholder {
+            color: var(--text-secondary);
+            opacity: 0.6;
+        }
+
+        /* ===== CHIPS ROW ===== */
+        .chips-row {
+            display: flex;
+            gap: var(--space-sm);
+            padding: var(--space-sm) var(--space-xs) 0 var(--space-xs);
+        }
+
+        .chip {
+            border-radius: 9999px;
+            padding: 4px 16px;
+            cursor: pointer;
+            font-family: 'Geist', sans-serif;
+            font-size: 12px;
+            font-weight: 500;
+            letter-spacing: 0.05em;
+            line-height: 16px;
+            border: 1px solid transparent;
+            transition: all 150ms ease;
+        }
+
+        .chip.active {
+            background: var(--primary-container);
+            color: var(--text-primary);
+            border: 1px solid var(--primary);
+        }
+
+        .chip.inactive {
+            background: rgba(142, 149, 160, 0.15);
+            color: var(--text-secondary);
+        }
+
+        .chip.inactive:hover {
+            background: rgba(142, 149, 160, 0.25);
+            color: var(--text-primary);
+        }
+
+        /* ===== RESULTS AREA ===== */
+        #results-container {
+            display: none;
+            padding: var(--space-sm);
+            max-height: 400px;
+            overflow-y: auto;
+            flex-direction: column;
+        }
+
+        #results-container::-webkit-scrollbar {
+            display: none;
+        }
+
+        #results-container {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        /* ===== RESULTS LIST WITH INDICATOR OVERLAY ===== */
+        #results-list {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Sliding Selection Overlay */
+        #selection-indicator {
+            position: absolute;
+            left: 8px;
+            right: 8px;
+            height: 0px;
+            top: 0px;
+            background: var(--row-selected);
+            border-radius: var(--radius);
+            transition: top 120ms cubic-bezier(0.2, 0.8, 0.2, 1), height 120ms cubic-bezier(0.2, 0.8, 0.2, 1);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* ===== RESULT ROW ===== */
+        .result-row {
+            display: flex;
+            width: 100%;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 16px;
+            border-radius: var(--radius);
+            text-align: left;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            position: relative;
+            z-index: 1; /* Renders content above sliding overlay */
+            transition: transform 120ms ease-out, opacity 120ms ease-out;
+        }
+
+        /* Row entrance transitions */
+        .result-row.row-enter {
+            opacity: 0;
+            transform: translateY(4px);
+        }
+
+        .result-row.row-enter-active {
+            opacity: 1;
+            transform: translateY(0);
+            transition: opacity 120ms ease-out, transform 120ms ease-out;
+        }
+
+        /* Row removal transitions */
+        .result-row.row-exit {
+            opacity: 0;
+            transform: scale(0.95);
+            transition: opacity 120ms ease-out, transform 120ms ease-out;
+        }
+
+        /* ===== RESULT LEFT ===== */
+        .result-left {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            min-width: 0;
+            flex: 1;
+        }
+
+        /* ===== RESULT ICON BOX ===== */
+        .result-icon-box {
+            width: 40px;
+            height: 40px;
+            background: var(--icon-bg);
+            border-radius: var(--radius);
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+            border: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        /* ===== RESULT TEXT ===== */
+        .result-text {
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+        }
+
+        .result-name {
+            font-family: 'Inter', sans-serif;
+            font-size: 15px;
+            font-weight: 500;
+            line-height: 22px;
+            color: var(--text-primary);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        /* Highlight matching characters color */
+        .highlight {
+            color: var(--highlight-color);
+            font-weight: 600;
+        }
+
+        .result-path {
+            font-family: 'Geist', sans-serif;
+            font-size: 11px;
+            font-weight: 400;
+            line-height: 16px;
+            color: var(--text-secondary);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            opacity: 0.8;
+        }
+
+        /* ===== RESULT RIGHT ===== */
+        .result-right {
+            display: flex;
+            align-items: center;
+            gap: var(--space-md);
+            flex-shrink: 0;
+            margin-left: 12px;
+        }
+
+        .result-type {
+            font-family: 'Geist', sans-serif;
+            font-size: 10px;
+            font-weight: 600;
+            line-height: 14px;
+            letter-spacing: 0.08em;
+            color: var(--text-secondary);
+            background: rgba(142, 149, 160, 0.15);
+            padding: 2px 6px;
+            border-radius: var(--radius-sm);
+            text-transform: uppercase;
+        }
+
+        /* ===== RESULT ARROW ===== */
+        .result-arrow {
+            color: var(--outline-variant);
+            opacity: 0;
+            transition: opacity 150ms;
+            font-size: 16px;
+            flex-shrink: 0;
+        }
+
+        .result-row:hover .result-arrow,
+        .result-row.selected .result-arrow {
+            opacity: 1;
+        }
+
+        /* ===== FOOTER ===== */
+        #footer {
+            display: none;
+            padding: var(--space-sm);
+            border-top: 1px solid var(--border-color);
+            background: rgba(0, 0, 0, 0.05);
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        #debug-stats {
+            display: none;
+            font-family: 'Geist', monospace;
+            font-size: 10px;
+            color: var(--text-secondary);
+            padding-left: 8px;
+            user-select: none;
+        }
+
+        .footer-btn {
+            padding: 8px 16px;
+            border-radius: var(--radius);
+            background: transparent;
+            color: var(--primary);
+            font-family: 'Geist', sans-serif;
+            font-size: 12px;
+            font-weight: 500;
+            letter-spacing: 0.05em;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: background-color 100ms ease-out;
+        }
+
+        .footer-btn:hover {
+            background: rgba(0, 120, 212, 0.08);
+        }
+
+        .footer-btn .material-symbols-outlined {
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+
+<div id="launcher" class="mica-surface launcher-visible">
+    <!-- Search Bar Area -->
+    <div class="search-area">
+        <div class="search-input-wrapper">
+            <span class="material-symbols-outlined search-icon">search</span>
+            <input id="search-input" type="text" placeholder="Type here to search" autocomplete="off" spellcheck="false" />
+        </div>
+        <div class="chips-row">
+            <button class="chip active" data-tab="all" onclick="setTab('all')">All</button>
+            <button class="chip inactive" data-tab="apps" onclick="setTab('apps')">Apps</button>
+            <button class="chip inactive" data-tab="docs" onclick="setTab('docs')">Documents</button>
+            <button class="chip inactive" data-tab="web" onclick="setTab('web')">Web</button>
+        </div>
+    </div>
+
+    <!-- Results Area -->
+    <div id="results-container">
+        <div id="results-list">
+            <div id="selection-indicator"></div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <div id="footer">
+        <div id="debug-stats"></div>
+        <button class="footer-btn" onclick="searchWeb()">
+            Search the web
+            <span class="material-symbols-outlined">open_in_new</span>
+        </button>
+    </div>
+</div>
+
+<script>
+    // ===== DOM References =====
+    const launcher = document.getElementById('launcher');
+    const searchInput = document.getElementById('search-input');
+    const resultsContainer = document.getElementById('results-container');
+    const resultsList = document.getElementById('results-list');
+    const selectionIndicator = document.getElementById('selection-indicator');
+    const footer = document.getElementById('footer');
+
+    // ===== State =====
+    let rawResults = [];
+    let currentTab = 'all';
+    let selectedIndex = 0;
+    let searchTimeout = null;
+    let lastQuery = "";
+
+    // ===== Dark Mode System Theme Synchronization =====
+    function applySystemTheme() {
+        const darkScheme = window.matchMedia('(prefers-color-scheme: dark)');
+        if (darkScheme.matches) {
+            document.documentElement.classList.remove('light');
+        } else {
+            document.documentElement.classList.add('light');
+        }
+    }
+    applySystemTheme();
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applySystemTheme);
+
+    // ===== Escape HTML =====
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    // ===== Highlight Query Match Characters =====
+    function highlightMatch(text, query) {
+        if (!query) return escapeHtml(text);
+        const queryClean = query.trim().toLowerCase();
+        if (queryClean.length === 0) return escapeHtml(text);
+
+        const textLower = text.toLowerCase();
+        const idx = textLower.indexOf(queryClean);
+        
+        // Exact substring highlight
+        if (idx !== -1) {
+            const part1 = text.substring(0, idx);
+            const part2 = text.substring(idx, idx + queryClean.length);
+            const part3 = text.substring(idx + queryClean.length);
+            return `${escapeHtml(part1)}<span class="highlight">${escapeHtml(part2)}</span>${escapeHtml(part3)}`;
+        }
+
+        // Sequential character highlight (acronym / fuzzy fallback)
+        let html = '';
+        let qIdx = 0;
+        for (let i = 0; i < text.length; i++) {
+            const char = text[i];
+            if (qIdx < queryClean.length && char.toLowerCase() === queryClean[qIdx]) {
+                html += `<span class="highlight">${escapeHtml(char)}</span>`;
+                qIdx++;
+            } else {
+                html += escapeHtml(char);
+            }
+        }
+        return html;
+    }
+
+    // ===== Format Secondary Path Display =====
+    function formatPath(path) {
+        if (!path) return '';
+        if (path.length <= 60) return path;
+
+        // Keep start drive prefix and final 3 folder elements
+        const parts = path.split('\\');
+        if (parts.length > 4) {
+            return `${parts[0]}\\...\\${parts.slice(-3).join('\\')}`;
+        }
+        return path;
+    }
+
+    // ===== Fallback Icon Mapping =====
+    function getIconForFile(metadata) {
+        const fileType = (metadata.file_type || '').toLowerCase();
+        const ext = (metadata.extension || '').toLowerCase();
+        const name = (metadata.name || '').toLowerCase();
+
+        if (fileType === 'application' || fileType === 'shortcut') {
+            if (name.includes('chrome') || name.includes('browser')) return { icon: 'public', color: '#4285F4' };
+            if (name.includes('firefox')) return { icon: 'public', color: '#FF7139' };
+            if (name.includes('edge')) return { icon: 'public', color: '#0078D4' };
+            if (name.includes('code') || name.includes('visual studio')) return { icon: 'code', color: '#007ACC' };
+            if (name.includes('terminal') || name.includes('cmd') || name.includes('powershell')) return { icon: 'terminal', color: '#4D4D4D' };
+            if (name.includes('explorer') || name.includes('file')) return { icon: 'folder_open', color: '#F4B400' };
+            if (name.includes('notepad') || name.includes('text')) return { icon: 'edit_note', color: '#5F6368' };
+            if (name.includes('calculator')) return { icon: 'calculate', color: '#34A853' };
+            if (name.includes('paint')) return { icon: 'palette', color: '#EA4335' };
+            if (name.includes('settings') || name.includes('control')) return { icon: 'settings', color: '#5F6368' };
+            return { icon: 'apps', color: '#0078D4' };
+        }
+
+        if (fileType === 'folder' || fileType === 'directory') {
+            return { icon: 'folder', color: '#F4B400' };
+        }
+
+        if (fileType === 'file') {
+            if (['pdf'].includes(ext)) return { icon: 'picture_as_pdf', color: '#EA4335' };
+            if (['doc', 'docx'].includes(ext)) return { icon: 'description', color: '#2B579A' };
+            if (['xls', 'xlsx', 'csv'].includes(ext)) return { icon: 'table_chart', color: '#217346' };
+            if (['ppt', 'pptx'].includes(ext)) return { icon: 'slideshow', color: '#D24726' };
+            if (['txt', 'md', 'rtf'].includes(ext)) return { icon: 'article', color: '#5F6368' };
+            if (['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'bmp', 'ico'].includes(ext)) return { icon: 'image', color: '#4285F4' };
+            if (['zip', 'rar', '7z', 'tar', 'gz'].includes(ext)) return { icon: 'folder_zip', color: '#F4B400' };
+            return { icon: 'draft', color: '#5F6368' };
+        }
+
+        return { icon: 'draft', color: '#5F6368' };
+    }
+
+    // ===== Format file type for display =====
+    function formatFileType(fileType) {
+        if (!fileType) return '';
+        const ft = fileType.toLowerCase();
+        if (ft === 'application') return 'APP';
+        if (ft === 'shortcut') return 'SHORTCUT';
+        if (ft === 'folder' || ft === 'directory') return 'FOLDER';
+        if (ft === 'file') return 'FILE';
+        return fileType.toUpperCase();
+    }
+
+    // ===== Show Launcher =====
+    function showLauncher() {
+        launcher.classList.remove('launcher-hidden', 'launcher-exit');
+        launcher.classList.add('launcher-visible');
+        searchInput.value = '';
+        rawResults = [];
+        lastQuery = "";
+        currentTab = 'all';
+        renderResults();
+        updateChipStyles();
+        setTimeout(() => {
+            searchInput.focus();
+        }, 30);
+    }
+
+    // ===== Hide Launcher =====
+    function hideLauncher() {
+        launcher.classList.remove('launcher-visible');
+        launcher.classList.add('launcher-exit');
+        setTimeout(() => {
+            window.ipc.postMessage(JSON.stringify({ type: 'hide_window' }));
+        }, 150);
+    }
+
+    // ===== Set Results (called from Rust) =====
+    function setResults(results, debugInfo) {
+        rawResults = results || [];
+        renderResults();
+
+        // Update debug diagnostics in HTML if debugInfo is present
+        const debugStats = document.getElementById('debug-stats');
+        if (debugInfo) {
+            debugStats.style.display = 'block';
+            debugStats.textContent = `Files: ${debugInfo.files_count.toLocaleString()} | Search: ${debugInfo.search_time_ms.toFixed(2)}ms | Rank: ${debugInfo.rank_time_ms.toFixed(2)}ms | Cache: ${debugInfo.cache_hits}/${debugInfo.cache_misses} | RAM: ${debugInfo.memory_mb.toFixed(2)}MB`;
+        } else {
+            debugStats.style.display = 'none';
+        }
+    }
+
+    // ===== Tab Filtering =====
+    function getFilteredResults() {
+        if (currentTab === 'all') return rawResults;
+
+        if (currentTab === 'apps') {
+            return rawResults.filter(r => {
+                const ft = (r.metadata.file_type || '').toLowerCase();
+                return ft === 'application' || ft === 'shortcut';
+            });
+        }
+
+        if (currentTab === 'docs') {
+            const docExtensions = ['pdf', 'xlsx', 'xls', 'docx', 'doc', 'txt', 'md', 'csv'];
+            return rawResults.filter(r => {
+                const ft = (r.metadata.file_type || '').toLowerCase();
+                const ext = (r.metadata.extension || '').toLowerCase();
+                return ft === 'file' && docExtensions.includes(ext);
+            });
+        }
+
+        return rawResults;
+    }
+
+    // ===== Set Tab =====
+    function setTab(tab) {
+        if (tab === 'web') {
+            searchWeb();
+            return;
+        }
+        currentTab = tab;
+        updateChipStyles();
+        renderResults();
+    }
+
+    // ===== Update Chip Styles =====
+    function updateChipStyles() {
+        const chips = document.querySelectorAll('.chip');
+        chips.forEach(chip => {
+            const tabName = chip.getAttribute('data-tab');
+            if (tabName === currentTab) {
+                chip.classList.remove('inactive');
+                chip.classList.add('active');
+            } else {
+                chip.classList.remove('active');
+                chip.classList.add('inactive');
+            }
+        });
+    }
+
+    // ===== Render Results =====
+    function renderResults() {
+        const filtered = getFilteredResults();
+
+        // 1. Remove any remaining exit rows immediately to prevent synchronization bugs
+        const staleExitRows = resultsList.querySelectorAll('.result-row.row-exit');
+        staleExitRows.forEach(row => {
+            if (row.parentNode) {
+                row.parentNode.removeChild(row);
+            }
+        });
+
+        if (filtered.length === 0) {
+            resultsContainer.style.display = 'none';
+            footer.style.display = 'none';
+            // Keep selection indicator hidden
+            selectionIndicator.style.height = '0px';
+            const rows = resultsList.querySelectorAll('.result-row');
+            rows.forEach(r => r.remove());
+            triggerResize();
+            return;
+        }
+
+        // Reset selection to index 0 if the query actually changed
+        const currentQuery = searchInput.value;
+        const queryChanged = (currentQuery !== lastQuery);
+        lastQuery = currentQuery;
+
+        // Get currently selected row path to preserve selection stability (only if query didn't change)
+        let prevSelectedPath = null;
+        if (!queryChanged) {
+            const currentActiveRows = resultsList.querySelectorAll('.result-row:not(.row-exit)');
+            if (currentActiveRows[selectedIndex]) {
+                prevSelectedPath = currentActiveRows[selectedIndex].getAttribute('data-path');
+            }
+        }
+
+        resultsContainer.style.display = 'flex';
+        footer.style.display = 'flex';
+
+        // Build a map of existing active rows by path
+        const existingRows = {};
+        const currentRows = resultsList.querySelectorAll('.result-row:not(.row-exit)');
+        currentRows.forEach(row => {
+            existingRows[row.getAttribute('data-path')] = row;
+        });
+
+        // Determine which paths are in the new results
+        const newPaths = new Set(filtered.map(r => r.metadata.full_path));
+
+        // Remove rows no longer in results (animate out)
+        currentRows.forEach(row => {
+            const path = row.getAttribute('data-path');
+            if (!newPaths.has(path)) {
+                row.classList.add('row-exit');
+                setTimeout(() => {
+                    if (row.parentNode) {
+                        row.parentNode.removeChild(row);
+                    }
+                }, 120);
+            }
+        });
+
+        // Batch all DOM insertions/reorderings in a single frame
+        requestAnimationFrame(() => {
+            filtered.forEach((result, index) => {
+                const path = result.metadata.full_path;
+                let row = existingRows[path];
+
+                if (!row) {
+                    // Create new row
+                    row = document.createElement('button');
+                    row.className = 'result-row row-enter';
+                    row.setAttribute('data-path', path);
+                    row.onclick = function () {
+                        setSelectedIndex(index);
+                        executeSelected();
+                    };
+
+                    // Sliding indicator selection hook on physical mouse moves
+                    row.addEventListener('mousemove', () => {
+                        const activeRows = resultsList.querySelectorAll('.result-row:not(.row-exit)');
+                        const idx = Array.from(activeRows).indexOf(row);
+                        if (idx !== -1 && selectedIndex !== idx) {
+                            setSelectedIndex(idx);
+                        }
+                    });
+
+                    resultsList.appendChild(row);
+
+                    // Trigger entrance animation
+                    requestAnimationFrame(() => {
+                        row.classList.remove('row-enter');
+                        row.classList.add('row-enter-active');
+                    });
+                } else {
+                    // Move existing row to correct position
+                    resultsList.appendChild(row);
+                }
+
+                // Render dynamic item structure with highlight match
+                const highlightedName = highlightMatch(result.metadata.name, currentQuery);
+                const displayPath = formatPath(result.metadata.parent_folder);
+                const displayType = formatFileType(result.metadata.file_type);
+
+                // Check if extracted binary base64 icon is present
+                let iconHtml = '';
+                if (result.icon_base64 && result.icon_base64.length > 0) {
+                    iconHtml = `<img src="data:image/png;base64,${result.icon_base64}" style="width: 24px; height: 24px; object-fit: contain;" />`;
+                } else {
+                    const iconInfo = getIconForFile(result.metadata);
+                    iconHtml = `<span class="material-symbols-outlined" style="color: ${iconInfo.color}; font-size: 24px; font-variation-settings: 'FILL' 1;">${iconInfo.icon}</span>`;
+                }
+
+                row.innerHTML = `
+                    <div class="result-left">
+                        <div class="result-icon-box">
+                            ${iconHtml}
+                        </div>
+                        <div class="result-text">
+                            <span class="result-name">${highlightedName}</span>
+                            <span class="result-path">${escapeHtml(displayPath)}</span>
+                        </div>
+                    </div>
+                    <div class="result-right">
+                        <span class="result-type">${displayType}</span>
+                        <span class="result-arrow material-symbols-outlined">arrow_forward_ios</span>
+                    </div>
+                `;
+
+                // Update click handler to reflect current index
+                row.onclick = function () {
+                    setSelectedIndex(index);
+                    executeSelected();
+                };
+            });
+
+            // Find new index of previously selected path for stability
+            let newSelectedIndex = 0;
+            if (prevSelectedPath) {
+                const matchIndex = filtered.findIndex(r => r.metadata.full_path === prevSelectedPath);
+                if (matchIndex !== -1) {
+                    newSelectedIndex = matchIndex;
+                }
+            }
+
+            setSelectedIndex(newSelectedIndex);
+            triggerResize();
+        });
+    }
+
+    // ===== Set Selected Index with Animated sliding indicator overlay =====
+    function setSelectedIndex(index) {
+        const rows = resultsList.querySelectorAll('.result-row:not(.row-exit)');
+        
+        let clampedIndex = index;
+        if (clampedIndex < 0) clampedIndex = 0;
+        if (clampedIndex >= rows.length) clampedIndex = rows.length - 1;
+
+        rows.forEach(row => row.classList.remove('selected'));
+        selectedIndex = clampedIndex;
+
+        if (rows[selectedIndex]) {
+            const target = rows[selectedIndex];
+            target.classList.add('selected');
+            target.scrollIntoView({ block: 'nearest' });
+
+            // Slide indicator position and size to match selected row
+            selectionIndicator.style.top = `${target.offsetTop}px`;
+            selectionIndicator.style.height = `${target.offsetHeight}px`;
+        }
+    }
+
+    // ===== Execute Selected =====
+    function executeSelected() {
+        const rows = resultsList.querySelectorAll('.result-row:not(.row-exit)');
+        if (selectedIndex >= 0 && selectedIndex < rows.length) {
+            const activeRow = rows[selectedIndex];
+            if (activeRow) {
+                const path = activeRow.getAttribute('data-path');
+                const query = searchInput.value;
+                window.ipc.postMessage(JSON.stringify({ type: 'select', query: query, path: path }));
+                hideLauncher();
+            }
+        }
+    }
+
+    // ===== Search Web =====
+    function searchWeb() {
+        const query = searchInput.value;
+        window.ipc.postMessage(JSON.stringify({ type: 'search_web', query: query }));
+        hideLauncher();
+    }
+
+    // ===== Trigger Resize (coalesced 50ms) =====
+    let resizeTimeout = null;
+    function triggerResize() {
+        clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(() => {
+            window.ipc.postMessage(JSON.stringify({ type: 'resize', height: launcher.offsetHeight }));
+        }, 50);
+    }
+
+    // ===== Event Listeners =====
+    document.addEventListener('DOMContentLoaded', () => {
+        window.ipc.postMessage(JSON.stringify({ type: 'ready' }));
+        searchInput.focus();
+    });
+
+    // Click anywhere (not on a button): re-focus search input
+    document.addEventListener('click', (e) => {
+        if (e.target.tagName !== 'BUTTON' && e.target.closest('button') === null) {
+            searchInput.focus();
+        }
+    });
+
+    // Input handler: 10ms debounced search
+    searchInput.addEventListener('input', (e) => {
+        const query = e.target.value;
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => {
+            window.ipc.postMessage(JSON.stringify({ type: 'search', query: query }));
+        }, 10);
+    });
+
+    // Keyboard navigation
+    searchInput.addEventListener('keydown', (e) => {
+        const rows = resultsList.querySelectorAll('.result-row:not(.row-exit)');
+        const count = rows.length;
+
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            if (count > 0) {
+                setSelectedIndex((selectedIndex + 1) % count);
+            }
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            if (count > 0) {
+                setSelectedIndex((selectedIndex - 1 + count) % count);
+            }
+        } else if (e.key === 'Enter') {
+            e.preventDefault();
+            executeSelected();
+        } else if (e.key === 'Escape') {
+            e.preventDefault();
+            hideLauncher();
+        }
+    });
+</script>
+
+</body>
+</html>

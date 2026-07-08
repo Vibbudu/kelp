@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Nova Search Launcher</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700&amp;family=Inter:wght@400;500;600&amp;family=Geist:wght@500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "on-secondary-fixed-variant": "#004e59",
+                      "primary-fixed-dim": "#a3c9ff",
+                      "inverse-on-surface": "#f1f1f1",
+                      "outline-variant": "#c0c7d4",
+                      "secondary-fixed": "#a0efff",
+                      "on-surface": "#1a1c1c",
+                      "tertiary-fixed-dim": "#ffb689",
+                      "error-container": "#ffdad6",
+                      "tertiary": "#974700",
+                      "on-primary-fixed-variant": "#004883",
+                      "surface-container": "#eeeeee",
+                      "on-tertiary-container": "#ffffff",
+                      "on-error-container": "#93000a",
+                      "inverse-primary": "#a3c9ff",
+                      "on-background": "#1a1c1c",
+                      "primary-fixed": "#d3e3ff",
+                      "error": "#ba1a1a",
+                      "secondary-container": "#4de4fd",
+                      "primary-container": "#0078d4",
+                      "surface": "#f9f9f9",
+                      "on-secondary": "#ffffff",
+                      "surface-container-low": "#f3f3f3",
+                      "on-secondary-container": "#006370",
+                      "tertiary-fixed": "#ffdbc8",
+                      "on-secondary-fixed": "#001f25",
+                      "inverse-surface": "#2f3131",
+                      "secondary-fixed-dim": "#3cd8f1",
+                      "secondary": "#006876",
+                      "on-primary": "#ffffff",
+                      "on-error": "#ffffff",
+                      "surface-container-high": "#e8e8e8",
+                      "on-tertiary-fixed-variant": "#743500",
+                      "outline": "#717783",
+                      "surface-bright": "#f9f9f9",
+                      "on-tertiary-fixed": "#311300",
+                      "background": "#f9f9f9",
+                      "on-surface-variant": "#404752",
+                      "surface-tint": "#0060ab",
+                      "surface-variant": "#e2e2e2",
+                      "on-primary-fixed": "#001c39",
+                      "surface-container-highest": "#e2e2e2",
+                      "on-tertiary": "#ffffff",
+                      "primary": "#005faa",
+                      "surface-dim": "#dadada",
+                      "on-primary-container": "#ffffff",
+                      "tertiary-container": "#bc5b00",
+                      "surface-container-lowest": "#ffffff"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "md": "16px",
+                      "unit": "4px",
+                      "sm": "8px",
+                      "xl": "40px",
+                      "xs": "4px",
+                      "lg": "24px",
+                      "gutter": "24px",
+                      "container-max": "1200px"
+              },
+              "fontFamily": {
+                      "display": [
+                              "Plus Jakarta Sans"
+                      ],
+                      "label-md": [
+                              "Geist"
+                      ],
+                      "body-lg": [
+                              "Inter"
+                      ],
+                      "headline-lg": [
+                              "Plus Jakarta Sans"
+                      ],
+                      "body-sm": [
+                              "Inter"
+                      ],
+                      "label-sm": [
+                              "Geist"
+                      ],
+                      "body-md": [
+                              "Inter"
+                      ],
+                      "headline-md": [
+                              "Plus Jakarta Sans"
+                      ]
+              },
+              "fontSize": {
+                      "display": [
+                              "40px",
+                              {
+                                      "lineHeight": "48px",
+                                      "letterSpacing": "-0.02em",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "label-md": [
+                              "12px",
+                              {
+                                      "lineHeight": "16px",
+                                      "letterSpacing": "0.05em",
+                                      "fontWeight": "500"
+                              }
+                      ],
+                      "body-lg": [
+                              "18px",
+                              {
+                                      "lineHeight": "28px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "headline-lg": [
+                              "32px",
+                              {
+                                      "lineHeight": "40px",
+                                      "letterSpacing": "-0.01em",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "body-sm": [
+                              "14px",
+                              {
+                                      "lineHeight": "20px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "label-sm": [
+                              "10px",
+                              {
+                                      "lineHeight": "14px",
+                                      "letterSpacing": "0.08em",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "body-md": [
+                              "16px",
+                              {
+                                      "lineHeight": "24px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "headline-md": [
+                              "24px",
+                              {
+                                      "lineHeight": "32px",
+                                      "fontWeight": "600"
+                              }
+                      ]
+              }
+      },
+          },
+        }
+      </script>
+<style>body {
+    background-image: url(https://lh3.googleusercontent.com/aida-public/AB6AXuA4csgBqBRmTzhk49XanI9MgfJVoOoa-Hij6POzMFFrHPMFV8LAAyGH9W7I70sRtNKSjSSX76mQUWdRGWn3FEUOJK0n39rsmdy9fQuoyWHAaMfjj3aMxKfuRObLwq2BlGErBPeJEVLpgz2vbluqbr8O7uyJamZRdSikGDZzQhZnpPolP6-XnE7YQJu68CxEjtGsBRZo3PbKejii-hMtGq1hE7mXTQRVZ5u0h0vGIQ8ojrcdHHKdD6bM);
+    background-size: cover;
+    background-position: center
+    }
+.mica-surface {
+    background-color: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-top: 1px solid rgba(255, 255, 255, 0.4);
+    border-left: 1px solid rgba(255, 255, 255, 0.4);
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.05)
+    }
+.search-input-focus:focus-within {
+    border-color: #005faa;
+    box-shadow: 0 0 0 2px rgba(0, 95, 170, 0.2)
+    }</style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-md font-body-md text-on-surface" data-alt="A serene, abstract desktop wallpaper featuring soft, flowing geometric waves in pastel blue and light gray tones. The lighting is diffused and modern, creating a clean, high-end light-mode aesthetic suitable for a professional workspace. Subtle gradients add depth without overwhelming the foreground UI elements.">
+<!-- Launcher Container -->
+<div class="w-full max-w-[800px] mica-surface rounded-xl overflow-hidden flex flex-col">
+<!-- Search Bar Area -->
+<div class="p-lg border-b border-outline-variant/20 flex flex-col gap-sm">
+<div class="relative flex items-center search-input-focus rounded-lg bg-surface/50 border border-outline-variant/30 transition-all duration-200">
+<span class="material-symbols-outlined text-outline absolute left-md" data-icon="search" style="font-variation-settings: 'FILL' 0;">search</span>
+<input autofocus="" class="w-full bg-transparent border-none pl-[48px] pr-md py-md font-body-lg text-body-lg text-on-surface placeholder-on-surface-variant/50 focus:ring-0 outline-none" placeholder="Type here to search" type="text"/>
+</div>
+<!-- Contextual Nav / Chips -->
+<div class="flex gap-sm px-xs pt-sm">
+<button class="px-md py-xs rounded-full bg-primary-container/10 text-primary font-label-md text-label-md border border-primary/20 hover:bg-primary-container/20 transition-colors flex items-center gap-xs">
+<span>All</span>
+</button>
+<button class="px-md py-xs rounded-full bg-surface-variant/30 text-on-surface-variant font-label-md text-label-md hover:bg-surface-variant/50 transition-colors flex items-center gap-xs">
+<span>Apps</span>
+</button>
+<button class="px-md py-xs rounded-full bg-surface-variant/30 text-on-surface-variant font-label-md text-label-md hover:bg-surface-variant/50 transition-colors flex items-center gap-xs">
+<span>Documents</span>
+</button>
+<button class="px-md py-xs rounded-full bg-surface-variant/30 text-on-surface-variant font-label-md text-label-md hover:bg-surface-variant/50 transition-colors flex items-center gap-xs">
+<span>Web</span>
+</button>
+</div>
+</div>
+<!-- Search Results Area -->
+<div class="p-sm flex flex-col max-h-[400px] overflow-y-auto">
+<!-- Result 1: App -->
+<button class="w-full flex items-center justify-between p-md hover:bg-on-surface-variant/5 rounded-lg transition-colors group text-left">
+<div class="flex items-center gap-md">
+<div class="w-[40px] h-[40px] bg-surface rounded-lg shadow-sm flex items-center justify-center border border-outline-variant/10">
+<span class="material-symbols-outlined text-primary text-[24px]" data-icon="language" style="font-variation-settings: 'FILL' 1;">language</span>
+</div>
+<div class="flex flex-col">
+<span class="font-body-md text-body-md font-medium text-on-surface">Google Chrome</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant/70 uppercase">App</span>
+</div>
+</div>
+<span class="material-symbols-outlined text-outline-variant opacity-0 group-hover:opacity-100 transition-opacity" data-icon="arrow_forward_ios">arrow_forward_ios</span>
+</button>
+<!-- Result 2: File -->
+<button class="w-full flex items-center justify-between p-md hover:bg-on-surface-variant/5 rounded-lg transition-colors group text-left">
+<div class="flex items-center gap-md">
+<div class="w-[40px] h-[40px] bg-surface rounded-lg shadow-sm flex items-center justify-center border border-outline-variant/10">
+<span class="material-symbols-outlined text-[#107c41] text-[24px]" data-icon="table" style="font-variation-settings: 'FILL' 1;">table</span>
+</div>
+<div class="flex flex-col">
+<span class="font-body-md text-body-md font-medium text-on-surface">Budget_2024.xlsx</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant/70 uppercase">File</span>
+</div>
+</div>
+<span class="material-symbols-outlined text-outline-variant opacity-0 group-hover:opacity-100 transition-opacity" data-icon="arrow_forward_ios">arrow_forward_ios</span>
+</button>
+<!-- Result 3: Setting -->
+<button class="w-full flex items-center justify-between p-md hover:bg-on-surface-variant/5 rounded-lg transition-colors group text-left">
+<div class="flex items-center gap-md">
+<div class="w-[40px] h-[40px] bg-surface rounded-lg shadow-sm flex items-center justify-center border border-outline-variant/10">
+<span class="material-symbols-outlined text-secondary text-[24px]" data-icon="settings" style="font-variation-settings: 'FILL' 1;">settings</span>
+</div>
+<div class="flex flex-col">
+<span class="font-body-md text-body-md font-medium text-on-surface">System Settings</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant/70 uppercase">Setting</span>
+</div>
+</div>
+<span class="material-symbols-outlined text-outline-variant opacity-0 group-hover:opacity-100 transition-opacity" data-icon="arrow_forward_ios">arrow_forward_ios</span>
+</button>
+<!-- Result 4: Folder -->
+<button class="w-full flex items-center justify-between p-md hover:bg-on-surface-variant/5 rounded-lg transition-colors group text-left">
+<div class="flex items-center gap-md">
+<div class="w-[40px] h-[40px] bg-surface rounded-lg shadow-sm flex items-center justify-center border border-outline-variant/10">
+<span class="material-symbols-outlined text-[#F2C94C] text-[24px]" data-icon="folder" style="font-variation-settings: 'FILL' 1;">folder</span>
+</div>
+<div class="flex flex-col">
+<span class="font-body-md text-body-md font-medium text-on-surface">Project_Nova_Design</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant/70 uppercase">Folder</span>
+</div>
+</div>
+<span class="material-symbols-outlined text-outline-variant opacity-0 group-hover:opacity-100 transition-opacity" data-icon="arrow_forward_ios">arrow_forward_ios</span>
+</button>
+<!-- Result 5: App -->
+<button class="w-full flex items-center justify-between p-md hover:bg-on-surface-variant/5 rounded-lg transition-colors group text-left">
+<div class="flex items-center gap-md">
+<div class="w-[40px] h-[40px] bg-surface rounded-lg shadow-sm flex items-center justify-center border border-outline-variant/10">
+<span class="material-symbols-outlined text-[#5865F2] text-[24px]" data-icon="forum" style="font-variation-settings: 'FILL' 1;">forum</span>
+</div>
+<div class="flex flex-col">
+<span class="font-body-md text-body-md font-medium text-on-surface">Discord</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant/70 uppercase">App</span>
+</div>
+</div>
+<span class="material-symbols-outlined text-outline-variant opacity-0 group-hover:opacity-100 transition-opacity" data-icon="arrow_forward_ios">arrow_forward_ios</span>
+</button>
+</div>
+<!-- Footer / Action Area -->
+<div class="p-sm border-t border-outline-variant/10 bg-surface/30 flex justify-end">
+<button class="px-md py-sm rounded-lg bg-transparent text-primary font-label-md text-label-md hover:bg-primary/5 transition-colors flex items-center gap-xs">
+<span>Search the web</span>
+<span class="material-symbols-outlined text-[16px]" data-icon="open_in_new">open_in_new</span>
+</button>
+</div>
+</div>
+</body></html>

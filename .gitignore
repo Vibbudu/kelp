@@ -1,0 +1,32 @@
+# Rust build artifacts
+/target/
+
+# Local database and WAL files
+/*.db
+/*.db-shm
+/*.db-wal
+
+# Logging and Diagnostics
+/logs/
+*.log
+
+# Local Configurations
+/config.json
+
+# IDEs & Editor configurations
+/.idea/
+/.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Executables and debug symbols
+*.exe
+*.pdb
+*.dll

@@ -1,0 +1,63 @@
+[package]
+name = "nova-launcher"
+version = "0.1.0-alpha"
+edition = "2021"
+
+[lib]
+name = "engine"
+path = "src/lib.rs"
+
+[dependencies]
+# Async Runtime
+tokio = { version = "1.38", features = ["full"] }
+
+# SQLite Database
+rusqlite = { version = "0.31.0", features = ["bundled"] }
+
+# File System Watcher & Walker
+notify = "6.1.1"
+walkdir = "2.5.0"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# UI Webview & Windowing
+wry = "0.40"
+tao = "0.25"
+global-hotkey = "0.5"
+
+# Logging / Tracing
+tracing = "0.1"
+tracing-subscriber = "0.3"
+
+# Image processing for Icons
+image = { version = "0.24", default-features = false, features = ["png"] }
+
+# Windows API integrations (specifically for UI, Shell, COM and Foundation)
+[dependencies.windows]
+version = "0.58.0"
+features = [
+    "Win32_Foundation",
+    "Win32_System_Com",
+    "Win32_UI_Shell",
+    "Win32_UI_WindowsAndMessaging",
+    "Win32_UI_Controls",
+    "Win32_Graphics_Gdi",
+    "Win32_System_LibraryLoader",
+    "Win32_Storage_FileSystem",
+    "Win32_UI_Input_KeyboardAndMouse",
+    "Win32_System_ProcessStatus",
+    "Win32_System_Threading",
+]
+
+[build-dependencies]
+embed-resource = "2.4"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
+
