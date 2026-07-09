@@ -18,4 +18,4 @@ Please check your `logs/panic.log` file in the application directory. Copy and p
 
 **Desktop details:**
 - Windows Version:
-- Nova Launcher Version:
+- Kelp Version:

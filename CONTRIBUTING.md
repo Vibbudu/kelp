@@ -1,6 +1,6 @@
-# Contributing to Nova Launcher
+# Contributing to Kelp
 
-Thank you for choosing to contribute to Nova Launcher! We welcome help in fixing bugs, improving search quality, optimizing performance, or polishing user interfaces.
+Thank you for choosing to contribute to Kelp! We welcome help in fixing bugs, improving search quality, optimizing performance, or polishing user interfaces.
 
 ---
 
@@ -17,11 +17,11 @@ Thank you for choosing to contribute to Nova Launcher! We welcome help in fixing
 
 ## 🚀 How to Contribute
 
-### 1. Fork the Repository
+## 1. Fork the Repository
 Create a personal fork of the repository and clone it locally:
 ```bash
-git clone https://github.com/Vibbudu/nova.git
-cd nova
+git clone https://github.com/Vibbudu/kelp.git
+cd kelp
 ```
 
 ### 2. Branching Strategy

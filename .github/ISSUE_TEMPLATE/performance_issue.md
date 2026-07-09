@@ -1,6 +1,6 @@
 ---
 name: ⚡ Performance Issue
-about: Report high CPU, memory leak, or latency/lags in Nova Launcher
+about: Report high CPU, memory leak, or latency/lags in Kelp
 title: '[PERF] '
 labels: performance
 assignees: ''

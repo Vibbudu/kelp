@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.1.0-alpha] - 2026-07-08
 
-Initial public alpha release of **Nova Launcher**.
+Initial public alpha release of **Kelp**.
 
 ### Added
 - **Core Search Engine**: Multi-tiered search matching including Exact, Prefix, Acronym, Camel Case, Contains, Fuzzy, and Typo matches.

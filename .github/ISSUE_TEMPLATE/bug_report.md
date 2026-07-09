@@ -1,6 +1,6 @@
 ---
 name: 🐛 Bug Report
-about: Create a report to help us improve Nova Launcher
+about: Create a report to help us improve Kelp
 title: '[BUG] '
 labels: bug
 assignees: ''
@@ -11,7 +11,7 @@ A clear and concise description of what the bug is.
 
 **To Reproduce**
 Steps to reproduce the behavior:
-1. Open Nova Launcher (`Alt + Space`)
+1. Open Kelp (`Alt + Space`)
 2. Type query '...'
 3. Click on or select '...'
 4. See error

@@ -1,55 +1,55 @@
-# 🚀 Kelp
+# Kelp
 
-<!-- PROJECT LOGO PLACEHOLDER -->
 <div align="center">
-  <img src="assets/logo-placeholder.png" alt="Kelp Logo" width="120" height="120" />
+  <img src="logo/logo.svg" alt="Kelp Logo" width="120" height="120" />
   <p align="center">
-    <strong>Blazingly fast, lightweight, and beautiful keyboard-driven desktop launcher for Windows.</strong>
+    <strong>A fast, keyboard-driven desktop launcher for Windows.</strong>
   </p>
   <p align="center">
-    <a href="https://github.com/Vibbudu/nova/actions"><img src="https://github.com/Vibbudu/nova/actions/workflows/release.yml/badge.svg" alt="Build Status" /></a>
+    <a href="https://github.com/Vibbudu/kelp/actions"><img src="https://github.com/Vibbudu/kelp/actions/workflows/release.yml/badge.svg" alt="Build Status" /></a>
     <img src="https://img.shields.io/badge/status-alpha-orange" alt="Alpha Status" />
-    <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License" />
-    <img src="https://img.shields.io/badge/platform-Windows-brightgreen.svg" alt="Platform" />
+    <img src="https://img.shields.io/badge/license-MIT-blue" alt="License" />
+    <img src="https://img.shields.io/badge/platform-Windows-brightgreen" alt="Platform" />
   </p>
 </div>
 
 ---
 
-## 🌟 Introduction
+## Introduction
 
-Kelp is a modern keyboard-centric search launcher designed to help you find and open applications, shortcuts, folders, and files on Windows with zero friction. Powered by a Rust search engine and a thin webview client, Kelp operates with **sub-millisecond search latencies** and zero background idle CPU.
+Kelp is a lightweight, keyboard-centric desktop search launcher for Windows that helps you find and open applications, shortcuts, folders, and files instantly. By combining a high-performance Rust indexing engine with a clean, hardware-accelerated webview interface, it achieves sub-millisecond search latency with minimal background resource usage.
+
+Kelp runs quietly in the background and is summoned instantly using a global hotkey.
 
 > [!NOTE]
-> This project is currently in **Public Alpha**. Issues, bug reports, and pull requests are highly welcome!
+> This project is currently in **Public Alpha**. Issues, feature suggestions, and pull requests are welcome.
 
 ---
 
-## ✨ Features
+## Key Features
 
-- **⚡ Blazingly Fast Search**: Sub-millisecond candidate lookup and matching entirely in-memory using lock-optimized index structures.
-- **🎨 Glassmorphic UI**: High-legibility modern theme conforming automatically to system dark and light modes.
-- **🗂️ Whitelisted Crawling**: Configurable file extension whitelisting to index files you actually care about while ignoring development junk.
-- **🖥️ Sleep-Proof Hotkey**: Dedicated OS message hook thread intercepting `Alt + Space` globally to ensure launcher wakes up instantly.
-- **🧠 Selection Learning**: Remembers launch frequency and recency, automatically bubbles up your favorite files for future searches.
-- **🖼️ Real-time Icon Extraction**: Live extraction of Windows binary and shortcut icons into memory with thread-safe caching.
-- **🔍 File Extension Filters**: Type `.pdf` or `.png` to immediately list files matching that extension.
-
----
-
-## ⌨️ Keyboard Shortcuts
-
-- `Alt + Space` - Toggle show/hide the launcher window.
-- `Arrow Up` / `Arrow Down` - Navigate the search results list.
-- `Enter` - Launch the selected item.
-- `Escape` - Hide the launcher.
-- `Mouse Move` - Slide the row selection overlay dynamically under the cursor.
+* **Sub-Millisecond Search**: Fully in-memory candidate indexing using lock-free read structures.
+* **Tiered Matching Logic**: Search terms are evaluated sequentially against Exact, Prefix, Acronym, CamelCase, Substring, and Fuzzy matches.
+* **Adaptive Ranking**: Learns your launch habits (recency and frequency) to rank your favorite items higher over time.
+* **Real-time File Watcher**: Automatically listens for file system creations, modifications, and deletions to update the index incrementally.
+* **Extension Filtering**: Limit searches by typing extensions directly (e.g., `.pdf report` or `.exe`).
+* **Minimal Footprint**: Operates with zero idle background CPU and tiny memory overhead.
+* **Modern Interface**: Fluent-inspired glassmorphic design that adapts to system light and dark themes.
 
 ---
 
-## 🏗️ Architecture Overview
+## Keyboard Shortcuts
 
-Kelp utilizes a **Thin Client Architecture** separating UI and Search Engine logic:
+* `Alt + Space` — Toggle show/hide the launcher window.
+* `Arrow Up` / `Arrow Down` — Navigate the search results.
+* `Enter` — Launch the selected file, folder, or application.
+* `Escape` — Hide the launcher window.
+
+---
+
+## System Architecture
+
+Kelp uses a thin-client architecture that separates the user interface from the core search engine:
 
 ```mermaid
 graph TD
@@ -61,45 +61,54 @@ graph TD
     Bridge <-->|Record selection| Learning[Learning Engine]
 ```
 
-- **Core Search Engine**: Performs acronym, prefix, contains, fuzzy, camel case, and exact matches.
-- **SQLite Database**: Persists file metadata cache and learning selection stats.
-- **File System Watcher**: Receives low-level events to update the index incrementally in real-time.
+* **Core Search Engine**: Written in Rust, running zero-copy algorithms under read locks.
+* **SQLite Database**: Persists whitelisted file index cache and selection history.
+* **File Watcher**: Listens to system events and propagates changes to the memory index in real-time.
 
 ---
 
-## 🚀 Getting Started
+## Installation
+
+You can download the compiled installer from the [Releases](https://github.com/Vibbudu/kelp/releases) page.
+
+1. Download `KelpSetup-v0.1.0-alpha.exe`.
+2. Run the installer wizard to install Kelp.
+3. Start Kelp from the Start Menu or desktop shortcut.
+
+---
+
+## Building from Source
 
 ### Prerequisites
 
-- [Rust & Cargo](https://rustup.rs/) (Stable channel)
-- Windows 10 or 11
+* [Rust & Cargo](https://rustup.rs/) (Stable channel)
+* Windows 10 or 11
 
-### Running from Source
+### Run Development Build
 
-1. Clone this repository:
+1. Clone the repository:
    ```bash
-   git clone https://github.com/Vibbudu/nova.git
-   cd nova
+   git clone https://github.com/Vibbudu/kelp.git
+   cd kelp
    ```
-2. Run the application in development mode:
+2. Run the application:
    ```bash
    cargo run
    ```
-3. Press `Alt + Space` to summon the launcher.
 
-### Running Optimizations (Release Build)
+### Compile Release Target
 
-Build a fully optimized production executable:
+To generate a fully optimized production executable:
 ```bash
 cargo build --release
 ```
-The compiled executable will be located at `target/release/kelp.exe`.
+The compiled binary will be placed at `target/release/kelp.exe`.
 
 ---
 
-## ⚙️ Configuration
+## Configuration
 
-The launcher generates a default `config.json` configuration file upon first startup in the current working directory. You can edit this file to customize the supported file extensions:
+On first startup, Kelp creates a `config.json` file in its local AppData directory (`%LOCALAPPDATA%\Kelp\config.json`). You can customize the whitelisted file extensions there:
 
 ```json
 {
@@ -111,21 +120,21 @@ The launcher generates a default `config.json` configuration file upon first sta
 
 ---
 
-## 🗺️ Roadmap
+## Roadmap
 
-- [ ] System Tray integration for easy background management
-- [ ] Direct Web search keyword support (e.g. `g! search query`)
-- [ ] Customizable search paths and custom index exclusion filters
-- [ ] Installer package using WiX or NSIS
-
----
-
-## 🤝 Contributing
-
-Contributions make the open-source community an amazing place! Please check [CONTRIBUTING.md](CONTRIBUTING.md) to get started.
+* [ ] System Tray integration for easy background state management.
+* [ ] Direct web search keyword triggers (e.g. `g! query` to search Google).
+* [ ] Customizable indexing path selections and blacklists.
+* [ ] Native calculator and unit conversion tool.
 
 ---
 
-## 📄 License
+## Contributing
+
+Contributions are welcome. Please check [CONTRIBUTING.md](CONTRIBUTING.md) to get started.
+
+---
+
+## License
 
 Distributed under the MIT License. See [LICENSE](LICENSE) for more information.

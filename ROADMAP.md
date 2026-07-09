@@ -1,6 +1,6 @@
 # Roadmap
 
-This document outlines the planned milestones, upcoming features, and future goals for **Nova Launcher**.
+This document outlines the planned milestones, upcoming features, and future goals for **Kelp**.
 
 ---
 

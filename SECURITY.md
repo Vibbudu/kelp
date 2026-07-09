@@ -1,6 +1,6 @@
 # Security Policy
 
-We take security issues seriously. If you discover a vulnerability in Nova Launcher, please report it following the guidelines below.
+We take security issues seriously. If you discover a vulnerability in Kelp, please report it following the guidelines below.
 
 ---
 
@@ -12,4 +12,4 @@ Please do **NOT** open a public issue on GitHub for security vulnerabilities. In
 2. Describe the vulnerability, how to reproduce it, and the potential impact.
 3. We will acknowledge receipt of your report within 48 hours and work with you to release a fix.
 
-Thank you for helping keep Nova Launcher secure!
+Thank you for helping keep Kelp secure!

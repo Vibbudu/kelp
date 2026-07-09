@@ -1,6 +1,6 @@
 ---
 name: ✨ Feature Request
-about: Propose a new feature or enhancement for Nova Launcher
+about: Propose a new feature or enhancement for Kelp
 title: '[FEATURE] '
 labels: enhancement
 assignees: ''

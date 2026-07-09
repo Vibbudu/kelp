@@ -52,12 +52,12 @@ jobs:
       - name: Package Executable
         run: |
           mkdir release-assets
-          cp target/release/nova-launcher.exe release-assets/
+          cp target/release/kelp.exe release-assets/
         shell: bash
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: release-assets/nova-launcher.exe
+          files: release-assets/kelp.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
