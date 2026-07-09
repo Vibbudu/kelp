@@ -1,13 +1,13 @@
-# 🚀 Nova Launcher
+# 🚀 Kelp
 
 <!-- PROJECT LOGO PLACEHOLDER -->
 <div align="center">
-  <img src="assets/logo-placeholder.png" alt="Nova Launcher Logo" width="120" height="120" />
+  <img src="assets/logo-placeholder.png" alt="Kelp Logo" width="120" height="120" />
   <p align="center">
     <strong>Blazingly fast, lightweight, and beautiful keyboard-driven desktop launcher for Windows.</strong>
   </p>
   <p align="center">
-    <a href="https://github.com/your-username/nova-launcher/actions"><img src="https://github.com/your-username/nova-launcher/actions/workflows/release.yml/badge.svg" alt="Build Status" /></a>
+    <a href="https://github.com/Vibbudu/nova/actions"><img src="https://github.com/Vibbudu/nova/actions/workflows/release.yml/badge.svg" alt="Build Status" /></a>
     <img src="https://img.shields.io/badge/status-alpha-orange" alt="Alpha Status" />
     <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License" />
     <img src="https://img.shields.io/badge/platform-Windows-brightgreen.svg" alt="Platform" />
@@ -18,7 +18,7 @@
 
 ## 🌟 Introduction
 
-Nova Launcher is a modern keyboard-centric search launcher designed to help you find and open applications, shortcuts, folders, and files on Windows with zero friction. Powered by a Rust search engine and a thin webview client, Nova operates with **sub-millisecond search latencies** and zero background idle CPU.
+Kelp is a modern keyboard-centric search launcher designed to help you find and open applications, shortcuts, folders, and files on Windows with zero friction. Powered by a Rust search engine and a thin webview client, Kelp operates with **sub-millisecond search latencies** and zero background idle CPU.
 
 > [!NOTE]
 > This project is currently in **Public Alpha**. Issues, bug reports, and pull requests are highly welcome!
@@ -49,7 +49,7 @@ Nova Launcher is a modern keyboard-centric search launcher designed to help you 
 
 ## 🏗️ Architecture Overview
 
-Nova Launcher utilizes a **Thin Client Architecture** separating UI and Search Engine logic:
+Kelp utilizes a **Thin Client Architecture** separating UI and Search Engine logic:
 
 ```mermaid
 graph TD
@@ -78,8 +78,8 @@ graph TD
 
 1. Clone this repository:
    ```bash
-   git clone https://github.com/your-username/nova-launcher.git
-   cd nova-launcher
+   git clone https://github.com/Vibbudu/nova.git
+   cd nova
    ```
 2. Run the application in development mode:
    ```bash
@@ -93,7 +93,7 @@ Build a fully optimized production executable:
 ```bash
 cargo build --release
 ```
-The compiled executable will be located at `target/release/nova-launcher.exe`.
+The compiled executable will be located at `target/release/kelp.exe`.
 
 ---
 

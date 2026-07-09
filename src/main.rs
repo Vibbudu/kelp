@@ -1,3 +1,5 @@
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
 use engine::UIBridge;
 use std::sync::Arc;
 use tracing::{info, error, warn};
@@ -45,6 +47,104 @@ enum UserEvent {
     HideWindow,
 }
 
+#[cfg(target_os = "windows")]
+unsafe fn get_foreground_window_title() -> String {
+    use windows::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, GetWindowTextW};
+    let hwnd = GetForegroundWindow();
+    if hwnd.0 as usize == 0 {
+        return "None".to_string();
+    }
+    let mut buffer = [0u16; 512];
+    let len = GetWindowTextW(hwnd, &mut buffer);
+    if len > 0 {
+        String::from_utf16_lossy(&buffer[..len as usize])
+    } else {
+        format!("HWND({:?})", hwnd.0)
+    }
+}
+
+#[cfg(target_os = "windows")]
+unsafe fn center_window_on_active_monitor(window: &tao::window::Window) {
+    use tao::platform::windows::WindowExtWindows;
+    use windows::Win32::UI::WindowsAndMessaging::GetForegroundWindow;
+    use windows::Win32::Graphics::Gdi::{
+        MonitorFromWindow, GetMonitorInfoW, MONITOR_DEFAULTTOPRIMARY, MONITORINFO,
+    };
+
+    let hwnd = windows::Win32::Foundation::HWND(window.hwnd() as *mut _);
+    let foreground_hwnd = GetForegroundWindow();
+    
+    // Fallback to our own window if no foreground window exists
+    let target_hwnd = if foreground_hwnd.0 as usize != 0 {
+        foreground_hwnd
+    } else {
+        hwnd
+    };
+
+    let hmonitor = MonitorFromWindow(target_hwnd, MONITOR_DEFAULTTOPRIMARY);
+    let mut mi = MONITORINFO::default();
+    mi.cbSize = std::mem::size_of::<MONITORINFO>() as u32;
+
+    if GetMonitorInfoW(hmonitor, &mut mi).as_bool() {
+        let work_left = mi.rcWork.left;
+        let work_top = mi.rcWork.top;
+        let work_width = mi.rcWork.right - mi.rcWork.left;
+        let work_height = mi.rcWork.bottom - mi.rcWork.top;
+
+        let scale_factor = window.scale_factor();
+        let kelp_width_phys = (800.0 * scale_factor) as i32;
+
+        let x = work_left + (work_width - kelp_width_phys) / 2;
+        let y = work_top + work_height / 5;
+
+        info!(
+            "[Monitor] Active Monitor Work Area: left={}, top={}, width={}, height={}. Positioning window at x={}, y={}",
+            work_left, work_top, work_width, work_height, x, y
+        );
+
+        window.set_outer_position(tao::dpi::PhysicalPosition::new(x, y));
+    } else {
+        warn!("[Monitor] Failed to retrieve monitor info for HWND {:?}", target_hwnd.0);
+    }
+}
+
+#[cfg(target_os = "windows")]
+unsafe fn force_set_foreground_window(window: &tao::window::Window) {
+    use tao::platform::windows::WindowExtWindows;
+    use windows::Win32::UI::WindowsAndMessaging::{
+        GetForegroundWindow, SetForegroundWindow, SetWindowPos, HWND_TOPMOST,
+        SET_WINDOW_POS_FLAGS,
+    };
+
+    let hwnd = windows::Win32::Foundation::HWND(window.hwnd() as *mut _);
+
+    // 1. Log transition details
+    let prev_fg = get_foreground_window_title();
+    info!(
+        "[Window] Showing Kelp window. Previous foreground window: '{}' (HWND: {:?})",
+        prev_fg, GetForegroundWindow().0
+    );
+
+    // 2. Set visible first
+    window.set_visible(true);
+
+    // 3. Make sure it is topmost
+    let _ = SetWindowPos(
+        hwnd,
+        HWND_TOPMOST,
+        0, 0, 0, 0,
+        SET_WINDOW_POS_FLAGS(0x0002 | 0x0001 | 0x0040), // SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW
+    );
+
+    // 4. Force foreground activation.
+    // Thanks to AllowSetForegroundWindow called on the hotkey thread, SetForegroundWindow will succeed natively!
+    let _ = SetForegroundWindow(hwnd);
+    
+    // 5. Let Tao set focus cleanly to keep event loop state in sync
+    window.set_focus();
+    info!("[Window] Visibility and focus set via Tao APIs.");
+}
+
 #[tokio::main]
 async fn main() {
     // 1. Install Global Panic Hook
@@ -55,7 +155,7 @@ async fn main() {
     if let Err(e) = tracing::subscriber::set_global_default(logger) {
         eprintln!("Failed to set global structured logger: {:?}", e);
     }
-    info!("Starting Nova Search Engine Launcher...");
+    info!("Starting Kelp Search Engine Launcher...");
 
     // 3. Initialize Windows COM library for Shell link resolving
     unsafe {
@@ -65,10 +165,21 @@ async fn main() {
         );
     }
 
-    // 4. Resolve database location (saved in execution folder)
-    let db_path = std::env::current_dir()
-        .unwrap_or_else(|_| std::path::PathBuf::from("."))
-        .join("search_engine.db");
+    // 4. Resolve database location (saved in Local AppData folder)
+    let db_path = engine::utilities::get_app_data_dir().join("kelp.db");
+
+    // Automatic database migration from legacy Nova Launcher database
+    if !db_path.exists() {
+        if let Ok(local_appdata) = std::env::var("LOCALAPPDATA") {
+            let old_db = std::path::PathBuf::from(local_appdata)
+                .join("Nova Launcher")
+                .join("search_engine.db");
+            if old_db.exists() {
+                let _ = std::fs::copy(&old_db, &db_path);
+                info!("Successfully migrated legacy database from Nova Launcher to Kelp.");
+            }
+        }
+    }
 
     // 5. Default Windows paths to crawl
     let watch_paths = engine::indexer::Indexer::default_windows_paths();
@@ -109,13 +220,19 @@ async fn main() {
     std::thread::spawn(move || {
         let receiver = GlobalHotKeyEvent::receiver();
         while let Ok(hotkey_event) = receiver.recv() {
+            // Delegate foreground activation permission to this process before sending event
+            unsafe {
+                let _ = windows::Win32::UI::WindowsAndMessaging::AllowSetForegroundWindow(
+                    windows::Win32::System::Threading::GetCurrentProcessId()
+                );
+            }
             let _ = hotkey_proxy.send_event(UserEvent::GlobalHotkey(hotkey_event));
         }
     });
 
     // 8. Build borderless, transparent Window centered elevated on monitor (start HIDDEN)
     let mut builder = WindowBuilder::new()
-        .with_title("Nova Launcher")
+        .with_title("Kelp")
         .with_decorations(false)
         .with_transparent(true)
         .with_resizable(false)
@@ -176,12 +293,14 @@ async fn main() {
         .unwrap();
 
     // 10. Run Event Loop
+    let _keep_alive = hotkey_manager;
     event_loop.run(move |event, _, control_flow| {
+        let _ = &_keep_alive; // Force moving into closure to keep hotkey registered forever
         *control_flow = ControlFlow::Wait;
 
         match event {
             Event::NewEvents(StartCause::Init) => {
-                info!("Nova Search Launcher event loop started.");
+                info!("Kelp Search Launcher event loop started.");
             }
             Event::WindowEvent {
                 event: WindowEvent::CloseRequested,
@@ -190,25 +309,44 @@ async fn main() {
                 *control_flow = ControlFlow::Exit;
             }
             Event::WindowEvent {
-                event: WindowEvent::Focused(false),
+                event: WindowEvent::Focused(focused),
                 ..
             } => {
-                // Premium Auto-Hide on blur
-                let _ = webview.evaluate_script("hideLauncher()");
+                info!("[Window] Focus changed: focused={}", focused);
+                if focused {
+                    let _ = webview.evaluate_script("cancelHide()");
+                } else {
+                    // Premium Auto-Hide on blur
+                    let _ = webview.evaluate_script("hideLauncher()");
+                }
             }
             Event::UserEvent(user_event) => {
                 match user_event {
                     UserEvent::Ready => {
                         info!("Frontend WebView is ready and listening.");
+                        let debug_startup = std::env::var("DEBUG_STARTUP")
+                            .map(|v| v.to_lowercase() == "true")
+                            .unwrap_or(false);
+                        if debug_startup {
+                            info!("[Debug Startup] DEBUG_STARTUP=true detected. Showing launcher immediately.");
+                            unsafe {
+                                center_window_on_active_monitor(&window);
+                                force_set_foreground_window(&window);
+                            }
+                            let _ = webview.evaluate_script("showLauncher()");
+                        }
                     }
                     UserEvent::GlobalHotkey(hotkey_event) => {
                         if hotkey_event.id == alt_space_id && hotkey_event.state == global_hotkey::HotKeyState::Pressed {
                             let is_visible = window.is_visible();
+                            info!("[Hotkey] Pressed. Current Kelp window visibility: {}", is_visible);
                             if is_visible {
                                 let _ = webview.evaluate_script("hideLauncher()");
                             } else {
-                                window.set_visible(true);
-                                window.set_focus();
+                                unsafe {
+                                    center_window_on_active_monitor(&window);
+                                    force_set_foreground_window(&window);
+                                }
                                 let _ = webview.evaluate_script("showLauncher()");
                             }
                         }
@@ -220,8 +358,32 @@ async fn main() {
                             // Measure exact search and ranking timings
                             let search_start = std::time::Instant::now();
                             let parsed_query = engine::query_parser::parse_query(&query);
-                            let (mut results, _matched_files) = engine_c.search_engine.search(&parsed_query);
+                            let (mut results, matched_files) = engine_c.search_engine.search(&parsed_query);
                             let search_time_us = search_start.elapsed().as_micros() as f64 / 1000.0;
+
+                            let all_files = engine_c.index.get_all();
+                            let mut exact_matches = Vec::new();
+                            let mut prefix_matches = Vec::new();
+                            let mut contains_matches = Vec::new();
+                            let mut fuzzy_matches = Vec::new();
+
+                            for file in &all_files {
+                                if let Some(res) = engine::search::match_file(file, &parsed_query) {
+                                    match res.match_type.as_str() {
+                                        "Exact" => exact_matches.push(res.metadata.name.clone()),
+                                        "Prefix" => prefix_matches.push(res.metadata.name.clone()),
+                                        "Contains" => contains_matches.push(res.metadata.name.clone()),
+                                        "Fuzzy" => fuzzy_matches.push(res.metadata.name.clone()),
+                                        _ => {}
+                                    }
+                                }
+                            }
+
+                            info!("Normalized query: '{}'", parsed_query.raw);
+                            info!("Exact matches: {:?}", exact_matches);
+                            info!("Prefix matches: {:?}", prefix_matches);
+                            info!("Contains matches: {:?}", contains_matches);
+                            info!("Fuzzy matches: {:?}", fuzzy_matches);
 
                             let rank_start = std::time::Instant::now();
                             engine_c.ranking_engine.rank(&mut results, &parsed_query);
@@ -229,16 +391,17 @@ async fn main() {
 
                             // Re-apply truncation and population (same as bridge search)
                             let q_len = parsed_query.raw.len();
-                            let threshold = if q_len <= 2 { 0.3 } else if q_len <= 4 { 0.4 } else { 0.5 };
+                            let threshold = if q_len <= 2 { 0.2 } else if q_len <= 4 { 0.3 } else { 0.4 };
                             results.retain(|r| r.score >= threshold);
                             results.truncate(15);
+
+                            info!("Final ranked list: {:?}", results.iter().map(|r| format!("{} (score={:.3}, type={})", r.metadata.name, r.score, r.match_type)).collect::<Vec<_>>());
 
                             for r in &mut results {
                                 r.icon_base64 = Some(engine::utilities::get_icon_cached(&r.metadata));
                             }
 
-                            let top_matched_files: Vec<engine::FileMetadata> = results.iter().map(|r| r.metadata.clone()).collect();
-                            engine_c.cache.insert(&query, top_matched_files, results.clone());
+                            engine_c.cache.insert(&query, matched_files, results.clone());
 
                             let results_json = serde_json::to_string(&results).unwrap_or_else(|_| "[]".to_string());
 
@@ -297,6 +460,7 @@ async fn main() {
                         window.set_inner_size(LogicalSize::new(800.0, clamped));
                     }
                     UserEvent::HideWindow => {
+                        info!("[Window] Hiding Kelp window.");
                         window.set_visible(false);
                     }
                 }
@@ -311,9 +475,10 @@ fn launch_file(path: &str) {
     if path.is_empty() {
         return;
     }
+    info!("[Launch] Request to execute: '{}'", path);
     let path_w = windows::core::HSTRING::from(path);
     unsafe {
-        let _ = windows::Win32::UI::Shell::ShellExecuteW(
+        let res = windows::Win32::UI::Shell::ShellExecuteW(
             windows::Win32::Foundation::HWND(std::ptr::null_mut()),
             windows::core::PCWSTR(std::ptr::null()),
             windows::core::PCWSTR(path_w.as_ptr()),
@@ -321,6 +486,7 @@ fn launch_file(path: &str) {
             windows::core::PCWSTR(std::ptr::null()),
             windows::Win32::UI::WindowsAndMessaging::SW_SHOW,
         );
+        info!("[Launch] ShellExecuteW result for '{}': {:?}", path, res);
     }
 }
 
@@ -339,9 +505,7 @@ fn run_self_validation(engine: &UIBridge, hotkey_registered: bool) {
     info!("==================== STARTUP SELF-VALIDATION ====================");
     
     // 1. Check if database exists
-    let db_path = std::env::current_dir()
-        .unwrap_or_else(|_| std::path::PathBuf::from("."))
-        .join("search_engine.db");
+    let db_path = engine::utilities::get_app_data_dir().join("kelp.db");
     if db_path.exists() {
         info!("✓ [Self-Validation] SQLite Database exists: {:?}", db_path);
     } else {
@@ -395,6 +559,12 @@ fn run_self_validation(engine: &UIBridge, hotkey_registered: bool) {
         } else {
             warn!("✗ [Search-Validation] Searching '.{}' returned no results.", ext);
         }
+    }
+
+    let (res_aadhar, _) = engine.search("aadhar");
+    info!("[Search-Validation] Query 'aadhar' returned {} results:", res_aadhar.len());
+    for r in &res_aadhar {
+        info!("  - name='{}', score={}, match_type={}", r.metadata.name, r.score, r.match_type);
     }
 
     info!("=================================================================");

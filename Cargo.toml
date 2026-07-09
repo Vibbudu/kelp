@@ -1,5 +1,5 @@
 [package]
-name = "nova-launcher"
+name = "kelp"
 version = "0.1.0-alpha"
 edition = "2021"
 

@@ -340,3 +340,15 @@ pub fn get_memory_usage() -> usize {
         0
     }
 }
+
+/// Retrieves the writeable local AppData directory for storing configurations, databases, and logs.
+pub fn get_app_data_dir() -> PathBuf {
+    let mut path = if let Ok(local_appdata) = std::env::var("LOCALAPPDATA") {
+        PathBuf::from(local_appdata)
+    } else {
+        std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
+    };
+    path.push("Kelp");
+    let _ = std::fs::create_dir_all(&path);
+    path
+}

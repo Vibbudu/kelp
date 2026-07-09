@@ -25,8 +25,29 @@
 # OS generated files
 .DS_Store
 Thumbs.db
+Desktop.ini
 
 # Executables and debug symbols
 *.exe
 *.pdb
 *.dll
+*.dmp
+
+# Temporary and Cache files
+*.tmp
+*.temp
+/release-assets/
+/installer/output/
+
+# SQLite databases
+*.sqlite
+*.sqlite3
+
+# Packaging Archives
+*.zip
+*.7z
+*.rar
+
+# Scratch and custom temporary folders
+/scratch/
+

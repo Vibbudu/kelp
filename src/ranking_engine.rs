@@ -58,8 +58,8 @@ impl RankingSignal for HistorySignal {
             let diff = (now - last_time).max(0) as f64;
             let r = 1.0 / (1.0 + diff / 86400.0);
 
-            // HistoryScore = (0.8 * frequency) + (0.5 * recency)
-            (0.8 * f) + (0.5 * r)
+            // HistoryScore = (0.3 * frequency) + (0.2 * recency)
+            (0.3 * f) + (0.2 * r)
         } else {
             0.0
         }
@@ -148,5 +148,57 @@ impl RankingEngine {
                 .then_with(|| a.metadata.full_path.len().cmp(&b.metadata.full_path.len()))
                 .then_with(|| a.metadata.full_path.cmp(&b.metadata.full_path))
         });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::models::{FileMetadata, FileType};
+    use crate::search::{parse_query, match_file};
+    use crate::learning::LearningEngine;
+    use crate::storage::Storage;
+
+    fn mock_folder(name: &str) -> FileMetadata {
+        FileMetadata {
+            id: None,
+            name: name.to_string(),
+            extension: String::new(),
+            parent_folder: "C:\\".to_string(),
+            full_path: format!("C:\\{}", name),
+            modified_date: 0,
+            size: 0,
+            file_type: FileType::Folder,
+        }
+    }
+
+    #[test]
+    fn test_aadhar_search_ranking() {
+        let folder = mock_folder("Aadhar");
+        let query_exact = parse_query("aadhar");
+        let query_fuzzy = parse_query("adhr");
+
+        let res_exact = match_file(&folder, &query_exact).expect("Should match exact");
+        let res_fuzzy = match_file(&folder, &query_fuzzy).expect("Should match fuzzy");
+
+        assert_eq!(res_exact.match_type, "Exact");
+        assert_eq!(res_fuzzy.match_type, "Fuzzy");
+
+        let storage = Storage::new(std::path::Path::new(":memory:")).unwrap();
+        let learning = Arc::new(LearningEngine::new(storage));
+        let ranker = RankingEngine::default_config(learning);
+
+        // Test ranking under exact query
+        let mut results = vec![res_fuzzy.clone(), res_exact.clone()];
+        ranker.rank(&mut results, &query_exact);
+
+        println!("--- RANKED RESULTS FOR QUERY 'aadhar' ---");
+        for r in &results {
+            println!("  - name='{}', score={}, match_type={}", r.metadata.name, r.score, r.match_type);
+        }
+
+        assert_eq!(results[0].metadata.name, "Aadhar");
+        assert_eq!(results[0].match_type, "Exact");
+        assert!(results[0].score > results[1].score);
     }
 }

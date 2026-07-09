@@ -70,87 +70,82 @@ pub fn match_file(file: &FileMetadata, query: &SearchQuery) -> Option<SearchResu
         &file.name
     };
 
-    let mut best_score = 0.0;
-    let mut best_match_type = String::new();
-
     if is_exact_match(name, &search_term) || is_exact_match(name_without_ext, &search_term) {
-        best_score = 1.0;
-        best_match_type = "Exact".to_string();
-    }
-
-    if best_score < 0.9 {
-        if is_prefix_match(name, &search_term) {
-            let ratio = search_term.len() as f64 / name.len() as f64;
-            let score = 0.8 + 0.1 * ratio;
-            if score > best_score {
-                best_score = score;
-                best_match_type = "Prefix".to_string();
-            }
-        }
-        if is_prefix_match(name_without_ext, &search_term) {
-            let ratio = search_term.len() as f64 / name_without_ext.len() as f64;
-            let score = 0.8 + 0.1 * ratio;
-            if score > best_score {
-                best_score = score;
-                best_match_type = "Prefix".to_string();
-            }
-        }
-    }
-
-    if best_score < 0.75 && (is_acronym_match(name, &search_term) || is_acronym_match(name_without_ext, &search_term)) {
-        best_score = 0.75;
-        best_match_type = "Acronym".to_string();
-    }
-
-    if best_score < 0.70 && (is_camel_case_match(name, &search_term) || is_camel_case_match(name_without_ext, &search_term)) {
-        best_score = 0.70;
-        best_match_type = "CamelCase".to_string();
-    }
-
-    if best_score < 0.70 {
-        if is_contains_match(name, &search_term) {
-            let ratio = search_term.len() as f64 / name.len() as f64;
-            let score = 0.5 + 0.2 * ratio;
-            if score > best_score {
-                best_score = score;
-                best_match_type = "Contains".to_string();
-            }
-        }
-        if is_contains_match(name_without_ext, &search_term) {
-            let ratio = search_term.len() as f64 / name_without_ext.len() as f64;
-            let score = 0.5 + 0.2 * ratio;
-            if score > best_score {
-                best_score = score;
-                best_match_type = "Contains".to_string();
-            }
-        }
-    }
-
-    if best_score < 0.9 {
-        if let Some(fuzzy_score) = compute_fuzzy_match(name, &search_term) {
-            if fuzzy_score > best_score {
-                best_score = fuzzy_score;
-                best_match_type = "Fuzzy".to_string();
-            }
-        }
-        if let Some(fuzzy_score) = compute_fuzzy_match(name_without_ext, &search_term) {
-            if fuzzy_score > best_score {
-                best_score = fuzzy_score;
-                best_match_type = "Fuzzy".to_string();
-            }
-        }
-    }
-
-    if best_score < 0.40 && (is_typo_match(name, &search_term) || is_typo_match(name_without_ext, &search_term)) {
-        best_score = 0.40;
-        best_match_type = "Typo".to_string();
-    }
-
-    if best_score > 0.0 {
         return Some(SearchResult {
             metadata: file.clone(),
-            score: best_score,
-            match_type: best_match_type,
+            score: 1.0,
+            match_type: "Exact".to_string(),
+            icon_base64: None,
+        });
+    }
+
+    if is_prefix_match(name, &search_term) || is_prefix_match(name_without_ext, &search_term) {
+        let len = if is_prefix_match(name, &search_term) { name.len() } else { name_without_ext.len() };
+        let ratio = if len > 0 { search_term.len() as f64 / len as f64 } else { 1.0 };
+        let score = 0.80 + 0.09 * ratio.min(1.0);
+        return Some(SearchResult {
+            metadata: file.clone(),
+            score,
+            match_type: "Prefix".to_string(),
+            icon_base64: None,
+        });
+    }
+
+    if is_acronym_match(name, &search_term) || is_acronym_match(name_without_ext, &search_term) {
+        return Some(SearchResult {
+            metadata: file.clone(),
+            score: 0.75,
+            match_type: "Acronym".to_string(),
+            icon_base64: None,
+        });
+    }
+
+    if is_camel_case_match(name, &search_term) || is_camel_case_match(name_without_ext, &search_term) {
+        return Some(SearchResult {
+            metadata: file.clone(),
+            score: 0.65,
+            match_type: "CamelCase".to_string(),
+            icon_base64: None,
+        });
+    }
+
+    if is_contains_match(name, &search_term) || is_contains_match(name_without_ext, &search_term) {
+        let len = if is_contains_match(name, &search_term) { name.len() } else { name_without_ext.len() };
+        let ratio = if len > 0 { search_term.len() as f64 / len as f64 } else { 1.0 };
+        let score = 0.50 + 0.09 * ratio.min(1.0);
+        return Some(SearchResult {
+            metadata: file.clone(),
+            score,
+            match_type: "Contains".to_string(),
+            icon_base64: None,
+        });
+    }
+
+    if let Some(fuzzy_score) = compute_fuzzy_match(name, &search_term) {
+        let score = 0.30 + 0.19 * (fuzzy_score / 0.90).min(1.0);
+        return Some(SearchResult {
+            metadata: file.clone(),
+            score,
+            match_type: "Fuzzy".to_string(),
+            icon_base64: None,
+        });
+    }
+
+    if let Some(fuzzy_score) = compute_fuzzy_match(name_without_ext, &search_term) {
+        let score = 0.30 + 0.19 * (fuzzy_score / 0.90).min(1.0);
+        return Some(SearchResult {
+            metadata: file.clone(),
+            score,
+            match_type: "Fuzzy".to_string(),
+            icon_base64: None,
+        });
+    }
+
+    if is_typo_match(name, &search_term) || is_typo_match(name_without_ext, &search_term) {
+        return Some(SearchResult {
+            metadata: file.clone(),
+            score: 0.20,
+            match_type: "Typo".to_string(),
             icon_base64: None,
         });
     }
@@ -164,7 +159,7 @@ pub fn match_file(file: &FileMetadata, query: &SearchQuery) -> Option<SearchResu
 
 /// Exact Match: The query matches the file name exactly (case-insensitive).
 fn is_exact_match(target: &str, query: &str) -> bool {
-    target.eq_ignore_ascii_case(query)
+    target.to_lowercase() == query.to_lowercase()
 }
 
 /// Prefix Match: The file name starts with the query string (case-insensitive).
@@ -172,7 +167,7 @@ fn is_prefix_match(target: &str, query: &str) -> bool {
     if query.len() > target.len() {
         return false;
     }
-    target[..query.len()].eq_ignore_ascii_case(query)
+    target.to_lowercase().starts_with(&query.to_lowercase())
 }
 
 /// Contains Match: The file name contains the query as a substring (case-insensitive).
@@ -513,5 +508,44 @@ mod tests {
         let score_consec = compute_fuzzy_match("Chrome", "chr").unwrap();
         let score_scatter = compute_fuzzy_match("Camera Hotrod", "chr").unwrap();
         assert!(score_consec > score_scatter);
+    }
+
+    fn mock_file(name: &str) -> FileMetadata {
+        FileMetadata {
+            id: None,
+            name: name.to_string(),
+            extension: String::new(),
+            parent_folder: String::new(),
+            full_path: format!("C:\\{}", name),
+            modified_date: 0,
+            size: 0,
+            file_type: crate::models::FileType::Folder,
+        }
+    }
+
+    #[test]
+    fn test_exact_match_aadhar() {
+        let file = mock_file("Aadhar");
+        let query = parse_query("aadhar");
+        let res = match_file(&file, &query);
+        assert!(res.is_some());
+        let res_val = res.unwrap();
+        assert_eq!(res_val.match_type, "Exact");
+        assert_eq!(res_val.score, 1.0);
+    }
+
+    #[test]
+    fn test_aadhar_variations() {
+        let folder = mock_file("Aadhar");
+        let queries = vec!["aadhar", "aad", "adhr", "AADHAR", "Aadhar"];
+        for q_str in queries {
+            let query = parse_query(q_str);
+            let res = match_file(&folder, &query);
+            assert!(
+                res.is_some(),
+                "Query '{}' should match the folder 'Aadhar'",
+                q_str
+            );
+        }
     }
 }

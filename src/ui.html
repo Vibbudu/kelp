@@ -489,6 +489,7 @@
     let currentTab = 'all';
     let selectedIndex = 0;
     let searchTimeout = null;
+    let hideTimeout = null;
     let lastQuery = "";
 
     // ===== Dark Mode System Theme Synchronization =====
@@ -606,6 +607,10 @@
 
     // ===== Show Launcher =====
     function showLauncher() {
+        if (hideTimeout) {
+            clearTimeout(hideTimeout);
+            hideTimeout = null;
+        }
         launcher.classList.remove('launcher-hidden', 'launcher-exit');
         launcher.classList.add('launcher-visible');
         searchInput.value = '';
@@ -619,12 +624,24 @@
         }, 30);
     }
 
+    // ===== Cancel Pending Hide =====
+    function cancelHide() {
+        if (hideTimeout) {
+            clearTimeout(hideTimeout);
+            hideTimeout = null;
+        }
+        launcher.classList.remove('launcher-exit');
+        launcher.classList.add('launcher-visible');
+    }
+
     // ===== Hide Launcher =====
     function hideLauncher() {
+        if (hideTimeout) return;
         launcher.classList.remove('launcher-visible');
         launcher.classList.add('launcher-exit');
-        setTimeout(() => {
+        hideTimeout = setTimeout(() => {
             window.ipc.postMessage(JSON.stringify({ type: 'hide_window' }));
+            hideTimeout = null;
         }, 150);
     }
 

@@ -1571,6 +1571,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "kelp"
+version = "0.1.0-alpha"
+dependencies = [
+ "embed-resource",
+ "global-hotkey",
+ "image",
+ "notify",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "tao",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+ "walkdir",
+ "windows 0.58.0",
+ "wry",
+]
+
+[[package]]
 name = "keyboard-types"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1838,26 +1858,6 @@ dependencies = [
  "mio 0.8.11",
  "walkdir",
  "windows-sys 0.48.0",
-]
-
-[[package]]
-name = "nova-launcher"
-version = "0.1.0-alpha"
-dependencies = [
- "embed-resource",
- "global-hotkey",
- "image",
- "notify",
- "rusqlite",
- "serde",
- "serde_json",
- "tao",
- "tokio",
- "tracing",
- "tracing-subscriber",
- "walkdir",
- "windows 0.58.0",
- "wry",
 ]
 
 [[package]]

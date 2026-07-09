@@ -14,6 +14,8 @@ pub mod storage;
 pub mod ui_bridge;
 pub mod utilities;
 pub mod watcher;
+pub mod settings;
+pub mod update;
 
 // Re-export major structs for convenience
 pub use crate::models::{FileMetadata, FileType, SearchQuery, SearchResult};

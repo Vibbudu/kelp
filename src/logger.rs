@@ -14,9 +14,7 @@ pub struct FileLogger {
 
 impl FileLogger {
     pub fn new() -> Self {
-        let log_dir = std::env::current_dir()
-            .unwrap_or_else(|_| PathBuf::from("."))
-            .join("logs");
+        let log_dir = crate::utilities::get_app_data_dir().join("logs");
         let _ = fs::create_dir_all(&log_dir);
 
         Self {
@@ -162,9 +160,7 @@ fn format_timestamp(secs: u64) -> String {
 /// Global Panic Handler Setup
 pub fn setup_panic_handler() {
     std::panic::set_hook(Box::new(|info| {
-        let log_dir = std::env::current_dir()
-            .unwrap_or_else(|_| PathBuf::from("."))
-            .join("logs");
+        let log_dir = crate::utilities::get_app_data_dir().join("logs");
         let _ = fs::create_dir_all(&log_dir);
         let filepath = log_dir.join("panic.log");
 

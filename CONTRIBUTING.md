@@ -20,8 +20,8 @@ Thank you for choosing to contribute to Nova Launcher! We welcome help in fixing
 ### 1. Fork the Repository
 Create a personal fork of the repository and clone it locally:
 ```bash
-git clone https://github.com/your-username/nova-launcher.git
-cd nova-launcher
+git clone https://github.com/Vibbudu/nova.git
+cd nova
 ```
 
 ### 2. Branching Strategy

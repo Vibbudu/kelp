@@ -30,9 +30,7 @@ impl UIBridge {
         info!("Initializing Search System Bridge...");
 
         // Load configuration file
-        let config_path = std::env::current_dir()
-            .unwrap_or_else(|_| std::path::PathBuf::from("."))
-            .join("config.json");
+        let config_path = crate::utilities::get_app_data_dir().join("config.json");
         let app_config = crate::config::AppConfig::load_or_create(&config_path);
 
         // 1. Setup SQLite Storage
@@ -233,7 +231,7 @@ impl UIBridge {
         let query = crate::query_parser::parse_query(raw_query);
 
         // 1. Execute Search (leveraging prefix subset cache if available)
-        let (mut results, _matched_files) = self.search_engine.search(&query);
+        let (mut results, matched_files) = self.search_engine.search(&query);
 
         // 2. Score and Sort matching results
         self.ranking_engine.rank(&mut results, &query);
@@ -241,11 +239,11 @@ impl UIBridge {
         // 3. Dynamic Quality Filtering based on query length
         let q_len = query.raw.len();
         let threshold = if q_len <= 2 {
-            0.3
+            0.2
         } else if q_len <= 4 {
-            0.4
+            0.3
         } else {
-            0.5
+            0.4
         };
         results.retain(|r| r.score >= threshold);
 
@@ -257,9 +255,8 @@ impl UIBridge {
             r.icon_base64 = Some(crate::utilities::get_icon_cached(&r.metadata));
         }
 
-        // 6. Update Result Cache with only the truncated/high-quality set
-        let top_matched_files: Vec<FileMetadata> = results.iter().map(|r| r.metadata.clone()).collect();
-        self.cache.insert(raw_query, top_matched_files, results.clone());
+        // 6. Update Result Cache with all matching candidates and top 15 final results
+        self.cache.insert(raw_query, matched_files, results.clone());
 
         let latency_us = start_time.elapsed().as_micros() as u32;
         (results, latency_us)
