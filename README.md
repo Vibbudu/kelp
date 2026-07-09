@@ -1,7 +1,7 @@
 # Kelp
 
 <div align="center">
-  <img src="logo/logo.svg" alt="Kelp Logo" width="120" height="120" />
+  <img src="assets/logo.png" alt="Kelp Logo" width="120" height="120" />
   <p align="center">
     <strong>A fast, keyboard-driven desktop launcher for Windows.</strong>
   </p>
