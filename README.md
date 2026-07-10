@@ -1,15 +1,27 @@
 # Kelp
 
+
+
+
 <div align="center">
   <img src="assets/logo.png" alt="Kelp Logo" width="120" height="120" />
   <p align="center">
     <strong>A fast, keyboard-driven desktop launcher for Windows.</strong>
   </p>
   <p align="center">
-    <a href="https://github.com/Vibbudu/kelp/actions"><img src="https://github.com/Vibbudu/kelp/actions/workflows/release.yml/badge.svg" alt="Build Status" /></a>
+    <a href="https://github.com/Vibbudu/kelp/actions">
+      <img src="https://github.com/Vibbudu/kelp/actions/workflows/release.yml/badge.svg" alt="Build Status" />
+    </a>
     <img src="https://img.shields.io/badge/status-alpha-orange" alt="Alpha Status" />
     <img src="https://img.shields.io/badge/license-MIT-blue" alt="License" />
     <img src="https://img.shields.io/badge/platform-Windows-brightgreen" alt="Platform" />
+    <a href="https://kelp-website.vercel.app/">
+      <img src="https://img.shields.io/badge/Website-Live-00C853?style=flat-square" alt="Official Website" />
+    </a>
+  </p>
+
+  <p align="center">
+    <a href="https://kelp-website.vercel.app/"><strong> Official Website</strong></a>
   </p>
 </div>
 
