@@ -17,6 +17,21 @@ use global_hotkey::{
     GlobalHotKeyEvent,
 };
 use serde::Deserialize;
+use tray_icon::{
+    TrayIconBuilder,
+    menu::{Menu, MenuItem, MenuEvent},
+    TrayIconEvent,
+};
+
+fn load_icon_from_memory() -> tray_icon::Icon {
+    let icon_bytes = include_bytes!("../assets/logo.png");
+    let image = image::load_from_memory(icon_bytes)
+        .expect("Failed to load icon from memory")
+        .into_rgba8();
+    let (width, height) = image.dimensions();
+    let rgba = image.into_raw();
+    tray_icon::Icon::from_rgba(rgba, width, height).expect("Failed to build icon")
+}
 
 #[derive(Deserialize)]
 #[serde(tag = "type")]
@@ -45,6 +60,8 @@ enum UserEvent {
     SearchWeb { query: String },
     ResizeRequest { height: f64 },
     HideWindow,
+    TrayIcon(tray_icon::TrayIconEvent),
+    MenuEvent(tray_icon::menu::MenuEvent),
 }
 
 #[cfg(target_os = "windows")]
@@ -261,7 +278,34 @@ async fn main() {
         window.set_outer_position(tao::dpi::PhysicalPosition::new(x, y));
     }
 
-    // 9. Attach transparent Wry WebView hosting the embedded HTML client
+    // 9. Initialize System Tray
+    let tray_menu = Menu::new();
+    let show_item = MenuItem::new("Show Kelp", true, None);
+    let exit_item = MenuItem::new("Exit Kelp", true, None);
+    let _ = tray_menu.append(&show_item);
+    let _ = tray_menu.append(&exit_item);
+
+    let show_item_id = show_item.id().clone();
+    let exit_item_id = exit_item.id().clone();
+
+    let tray_icon = TrayIconBuilder::new()
+        .with_menu(Box::new(tray_menu))
+        .with_tooltip("Kelp Search")
+        .with_icon(load_icon_from_memory())
+        .build()
+        .unwrap();
+
+    let tray_proxy = event_loop_proxy.clone();
+    TrayIconEvent::set_event_handler(Some(move |event| {
+        let _ = tray_proxy.send_event(UserEvent::TrayIcon(event));
+    }));
+
+    let menu_proxy = event_loop_proxy.clone();
+    MenuEvent::set_event_handler(Some(move |event| {
+        let _ = menu_proxy.send_event(UserEvent::MenuEvent(event));
+    }));
+
+    // 10. Attach transparent Wry WebView hosting the embedded HTML client
     let html_content = include_str!("ui.html");
 
     let webview = WebViewBuilder::new(&window)
@@ -293,9 +337,9 @@ async fn main() {
         .unwrap();
 
     // 10. Run Event Loop
-    let _keep_alive = hotkey_manager;
+    let _keep_alive = (hotkey_manager, tray_icon);
     event_loop.run(move |event, _, control_flow| {
-        let _ = &_keep_alive; // Force moving into closure to keep hotkey registered forever
+        let _ = &_keep_alive; // Force moving into closure to keep hotkey and tray registered forever
         *control_flow = ControlFlow::Wait;
 
         match event {
@@ -306,7 +350,7 @@ async fn main() {
                 event: WindowEvent::CloseRequested,
                 ..
             } => {
-                *control_flow = ControlFlow::Exit;
+                window.set_visible(false);
             }
             Event::WindowEvent {
                 event: WindowEvent::Focused(focused),
@@ -462,6 +506,35 @@ async fn main() {
                     UserEvent::HideWindow => {
                         info!("[Window] Hiding Kelp window.");
                         window.set_visible(false);
+                    }
+                    UserEvent::TrayIcon(tray_event) => {
+                        match tray_event {
+                            tray_icon::TrayIconEvent::Click { button: tray_icon::MouseButton::Left, .. } => {
+                                let is_visible = window.is_visible();
+                                if is_visible {
+                                    let _ = webview.evaluate_script("hideLauncher()");
+                                } else {
+                                    unsafe {
+                                        center_window_on_active_monitor(&window);
+                                        force_set_foreground_window(&window);
+                                    }
+                                    let _ = webview.evaluate_script("showLauncher()");
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                    UserEvent::MenuEvent(menu_event) => {
+                        if menu_event.id == show_item_id {
+                            unsafe {
+                                center_window_on_active_monitor(&window);
+                                force_set_foreground_window(&window);
+                            }
+                            let _ = webview.evaluate_script("showLauncher()");
+                        } else if menu_event.id == exit_item_id {
+                            info!("Exiting Kelp via Tray Icon Exit command.");
+                            *control_flow = ControlFlow::Exit;
+                        }
                     }
                 }
             }

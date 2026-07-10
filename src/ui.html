@@ -855,7 +855,15 @@
                 }
             }
 
+            if (queryChanged) {
+                selectionIndicator.style.transition = 'none';
+            }
             setSelectedIndex(newSelectedIndex);
+            if (queryChanged) {
+                // Force layout reflow
+                selectionIndicator.offsetHeight;
+                selectionIndicator.style.transition = '';
+            }
             triggerResize();
         });
     }
@@ -942,12 +950,12 @@
         if (e.key === 'ArrowDown') {
             e.preventDefault();
             if (count > 0) {
-                setSelectedIndex((selectedIndex + 1) % count);
+                setSelectedIndex(Math.min(selectedIndex + 1, count - 1));
             }
         } else if (e.key === 'ArrowUp') {
             e.preventDefault();
             if (count > 0) {
-                setSelectedIndex((selectedIndex - 1 + count) % count);
+                setSelectedIndex(Math.max(selectedIndex - 1, 0));
             }
         } else if (e.key === 'Enter') {
             e.preventDefault();

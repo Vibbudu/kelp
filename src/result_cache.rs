@@ -123,10 +123,17 @@ impl ResultCache {
                 poisoned.into_inner()
             }
         };
+        let parsed_query = crate::query_parser::parse_query(&query_lower);
         let mut best_prefix = String::new();
         let mut best_files = None;
 
         for (cached_query, files) in inner.subset_files.iter() {
+            // Extension filter check: do not use cached subset if the extension filter does not match
+            let parsed_cached = crate::query_parser::parse_query(cached_query);
+            if parsed_query.extension_filter != parsed_cached.extension_filter {
+                continue;
+            }
+
             // Check if cached query is a proper prefix and longer than our best match so far
             if query_lower.starts_with(cached_query) && cached_query.len() > best_prefix.len() {
                 // Avoid using the query itself (as that would be an exact hit handled elsewhere)
