@@ -36,6 +36,7 @@ Desktop.ini
 # Temporary and Cache files
 *.tmp
 *.temp
+*.orig
 /release-assets/
 /installer/output/
 

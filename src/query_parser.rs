@@ -17,10 +17,13 @@ pub fn parse_query(raw: &str) -> SearchQuery {
         }
     }
 
+    let term_string = terms.join(" ");
+
     SearchQuery {
         raw: raw.trim().to_string(),
         extension_filter,
         terms,
+        term_string,
     }
 }
 

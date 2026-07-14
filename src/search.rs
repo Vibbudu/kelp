@@ -18,10 +18,13 @@ pub fn parse_query(raw: &str) -> SearchQuery {
         }
     }
 
+    let term_string = terms.join(" ");
+
     SearchQuery {
         raw: raw.trim().to_string(),
         extension_filter,
         terms,
+        term_string,
     }
 }
 
@@ -50,7 +53,7 @@ pub fn match_file(file: &FileMetadata, query: &SearchQuery) -> Option<SearchResu
     }
 
     // Join remaining terms to search within the file name
-    let search_term = query.terms.join(" ");
+    let search_term = &query.term_string;
     if search_term.is_empty() {
         return None;
     }
