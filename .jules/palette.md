@@ -1,0 +1,3 @@
+## 2025-02-15 - Material Symbol Text Ligatures Accessibility
+**Learning:** Material Symbols text ligatures (e.g. `power_settings_new`) are read aloud by screen readers verbatim if not explicitly hidden using `aria-hidden="true"`, causing severe accessibility issues for users relying on screen readers.
+**Action:** Always add `aria-hidden="true"` to icon elements that use text ligatures when they are decorative or when the action is otherwise described by accompanying text or labels.
