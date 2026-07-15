@@ -162,19 +162,44 @@ pub fn match_file(file: &FileMetadata, query: &SearchQuery) -> Option<SearchResu
 
 /// Exact Match: The query matches the file name exactly (case-insensitive).
 fn is_exact_match(target: &str, query: &str) -> bool {
+    // Optimization: Fast-path for ASCII strings to avoid heap allocations from `to_lowercase()`.
+    if target.is_ascii() && query.is_ascii() {
+        if target.len() != query.len() {
+            return false;
+        }
+        return target.eq_ignore_ascii_case(query);
+    }
     target.to_lowercase() == query.to_lowercase()
 }
 
 /// Prefix Match: The file name starts with the query string (case-insensitive).
 fn is_prefix_match(target: &str, query: &str) -> bool {
-    if query.len() > target.len() {
-        return false;
+    if query.is_empty() {
+        return true;
+    }
+    // Optimization: Fast-path for ASCII strings to avoid heap allocations from `to_lowercase()`.
+    if target.is_ascii() && query.is_ascii() {
+        if query.len() > target.len() {
+            return false;
+        }
+        return target.as_bytes()[..query.len()].eq_ignore_ascii_case(query.as_bytes());
     }
     target.to_lowercase().starts_with(&query.to_lowercase())
 }
 
 /// Contains Match: The file name contains the query as a substring (case-insensitive).
 fn is_contains_match(target: &str, query: &str) -> bool {
+    if query.is_empty() {
+        return true;
+    }
+    // Optimization: Fast-path for ASCII strings to avoid heap allocations from `to_lowercase()`.
+    // Uses sliding window byte comparison which is highly optimized.
+    if target.is_ascii() && query.is_ascii() {
+        if query.len() > target.len() {
+            return false;
+        }
+        return target.as_bytes().windows(query.len()).any(|w| w.eq_ignore_ascii_case(query.as_bytes()));
+    }
     let target_lower = target.to_lowercase();
     let query_lower = query.to_lowercase();
     target_lower.contains(&query_lower)
