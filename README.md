@@ -21,7 +21,7 @@
   </p>
 
   <p align="center">
-    <a href="https://kelp-website.vercel.app/"><strong> Official Website</strong></a>
+    <a href="https://kelp-launcher.vercel.app/"><strong> Official Website</strong></a>
   </p>
 </div>
 
