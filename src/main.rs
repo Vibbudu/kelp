@@ -44,6 +44,16 @@ enum IpcMessage {
     Select { query: String, path: String },
     #[serde(rename = "search_web")]
     SearchWeb { query: String },
+    #[serde(rename = "browse_folder")]
+    BrowseFolder { path: String },
+    #[serde(rename = "run_as_admin")]
+    RunAsAdmin { path: String },
+    #[serde(rename = "open_file_location")]
+    OpenFileLocation { path: String },
+    #[serde(rename = "copy_to_clipboard")]
+    CopyToClipboard { text: String },
+    #[serde(rename = "system_command")]
+    SystemCommand { command: String },
     #[serde(rename = "resize")]
     Resize { height: f64 },
     #[serde(rename = "hide_window")]
@@ -58,6 +68,12 @@ enum UserEvent {
     SearchCompleted { results_json: String, debug_json: Option<String> },
     SelectRequest { query: String, path: String },
     SearchWeb { query: String },
+    BrowseFolderRequest { path: String },
+    BrowseFolderCompleted { results_json: String },
+    RunAsAdminRequest { path: String },
+    OpenFileLocationRequest { path: String },
+    CopyToClipboardRequest { text: String },
+    SystemCommandRequest { command: String },
     ResizeRequest { height: f64 },
     HideWindow,
     TrayIcon(tray_icon::TrayIconEvent),
@@ -322,6 +338,11 @@ async fn main() {
                             IpcMessage::Search { query } => UserEvent::SearchRequest { query },
                             IpcMessage::Select { query, path } => UserEvent::SelectRequest { query, path },
                             IpcMessage::SearchWeb { query } => UserEvent::SearchWeb { query },
+                            IpcMessage::BrowseFolder { path } => UserEvent::BrowseFolderRequest { path },
+                            IpcMessage::RunAsAdmin { path } => UserEvent::RunAsAdminRequest { path },
+                            IpcMessage::OpenFileLocation { path } => UserEvent::OpenFileLocationRequest { path },
+                            IpcMessage::CopyToClipboard { text } => UserEvent::CopyToClipboardRequest { text },
+                            IpcMessage::SystemCommand { command } => UserEvent::SystemCommandRequest { command },
                             IpcMessage::Resize { height } => UserEvent::ResizeRequest { height },
                             IpcMessage::HideWindow => UserEvent::HideWindow,
                         };
@@ -499,6 +520,193 @@ async fn main() {
                             launch_url(&query);
                         });
                     }
+                    UserEvent::BrowseFolderRequest { path } => {
+                        let proxy = event_loop_proxy.clone();
+                        tokio::task::spawn_blocking(move || {
+                            let mut entries: Vec<serde_json::Value> = Vec::new();
+                            let dir = match std::fs::read_dir(&path) {
+                                Ok(d) => d,
+                                Err(e) => {
+                                    warn!("Failed to read directory '{}': {}", path, e);
+                                    let _ = proxy.send_event(UserEvent::BrowseFolderCompleted {
+                                        results_json: "[]".to_string(),
+                                    });
+                                    return;
+                                }
+                            };
+
+                            let mut dirs_list = Vec::new();
+                            let mut files_list = Vec::new();
+
+                            for entry in dir {
+                                let entry = match entry {
+                                    Ok(e) => e,
+                                    Err(_) => continue,
+                                };
+                                let entry_path = entry.path();
+                                let meta = match entry.metadata() {
+                                    Ok(m) => m,
+                                    Err(_) => continue,
+                                };
+
+                                // Skip hidden/system files on Windows
+                                #[cfg(target_os = "windows")]
+                                {
+                                    use std::os::windows::fs::MetadataExt;
+                                    let attrs = meta.file_attributes();
+                                    if (attrs & 0x2) != 0 || (attrs & 0x4) != 0 {
+                                        continue;
+                                    }
+                                }
+
+                                let name = entry_path
+                                    .file_name()
+                                    .map(|n| n.to_string_lossy().to_string())
+                                    .unwrap_or_default();
+                                let is_dir = meta.is_dir();
+                                let extension = if is_dir {
+                                    String::new()
+                                } else {
+                                    entry_path
+                                        .extension()
+                                        .map(|e| e.to_string_lossy().to_string().to_lowercase())
+                                        .unwrap_or_default()
+                                };
+                                let file_type = if is_dir {
+                                    engine::models::FileType::Folder
+                                } else if extension == "exe" || extension == "lnk" {
+                                    engine::models::FileType::Application
+                                } else {
+                                    engine::models::FileType::File
+                                };
+                                let modified_date = meta
+                                    .modified()
+                                    .ok()
+                                    .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+                                    .map(|d| d.as_secs() as i64)
+                                    .unwrap_or(0);
+                                let size = if is_dir { 0 } else { meta.len() as i64 };
+                                let full_path_str = entry_path.to_string_lossy().to_string();
+                                let parent_folder = entry_path
+                                    .parent()
+                                    .map(|p| p.to_string_lossy().to_string())
+                                    .unwrap_or_default();
+
+                                let file_meta = engine::models::FileMetadata {
+                                    id: None,
+                                    name: name.clone(),
+                                    extension: extension.clone(),
+                                    parent_folder,
+                                    full_path: full_path_str,
+                                    modified_date,
+                                    size,
+                                    file_type,
+                                };
+
+                                let icon = engine::utilities::get_icon_cached(&file_meta);
+
+                                let value = serde_json::json!({
+                                    "metadata": file_meta,
+                                    "icon_base64": icon,
+                                });
+
+                                if is_dir {
+                                    dirs_list.push((name.to_lowercase(), value));
+                                } else {
+                                    files_list.push((name.to_lowercase(), value));
+                                }
+                            }
+
+                            // Sort: directories first (alphabetically), then files (alphabetically)
+                            dirs_list.sort_by(|a, b| a.0.cmp(&b.0));
+                            files_list.sort_by(|a, b| a.0.cmp(&b.0));
+
+                            for (_, v) in dirs_list {
+                                entries.push(v);
+                                if entries.len() >= 50 {
+                                    break;
+                                }
+                            }
+                            if entries.len() < 50 {
+                                for (_, v) in files_list {
+                                    entries.push(v);
+                                    if entries.len() >= 50 {
+                                        break;
+                                    }
+                                }
+                            }
+
+                            let results_json = serde_json::to_string(&entries)
+                                .unwrap_or_else(|_| "[]".to_string());
+                            let _ = proxy.send_event(UserEvent::BrowseFolderCompleted { results_json });
+                        });
+                    }
+                    UserEvent::BrowseFolderCompleted { results_json } => {
+                        let script = format!("setFolderContents({})", results_json);
+                        if let Err(e) = webview.evaluate_script(&script) {
+                            error!("Failed to push folder contents to webview: {:?}", e);
+                        }
+                    }
+                    UserEvent::RunAsAdminRequest { path } => {
+                        info!("[Launch] Run as administrator: '{}'", path);
+                        tokio::task::spawn_blocking(move || {
+                            let path_w = windows::core::HSTRING::from(path.as_str());
+                            let verb_w = windows::core::HSTRING::from("runas");
+                            unsafe {
+                                let res = windows::Win32::UI::Shell::ShellExecuteW(
+                                    windows::Win32::Foundation::HWND(std::ptr::null_mut()),
+                                    windows::core::PCWSTR(verb_w.as_ptr()),
+                                    windows::core::PCWSTR(path_w.as_ptr()),
+                                    windows::core::PCWSTR(std::ptr::null()),
+                                    windows::core::PCWSTR(std::ptr::null()),
+                                    windows::Win32::UI::WindowsAndMessaging::SW_SHOW,
+                                );
+                                info!("[Launch] RunAsAdmin ShellExecuteW result: {:?}", res);
+                            }
+                        });
+                    }
+                    UserEvent::OpenFileLocationRequest { path } => {
+                        info!("[Launch] Open file location: '{}'", path);
+                        tokio::task::spawn_blocking(move || {
+                            let explorer_w = windows::core::HSTRING::from("explorer.exe");
+                            let args = format!("/select,\"{}\"", path);
+                            let args_w = windows::core::HSTRING::from(args.as_str());
+                            unsafe {
+                                let _ = windows::Win32::UI::Shell::ShellExecuteW(
+                                    windows::Win32::Foundation::HWND(std::ptr::null_mut()),
+                                    windows::core::PCWSTR(std::ptr::null()),
+                                    windows::core::PCWSTR(explorer_w.as_ptr()),
+                                    windows::core::PCWSTR(args_w.as_ptr()),
+                                    windows::core::PCWSTR(std::ptr::null()),
+                                    windows::Win32::UI::WindowsAndMessaging::SW_SHOW,
+                                );
+                            }
+                        });
+                    }
+                    UserEvent::CopyToClipboardRequest { text } => {
+                        info!("[Clipboard] Copying text: '{}'", text);
+                        tokio::task::spawn_blocking(move || {
+                            #[cfg(target_os = "windows")]
+                            use std::os::windows::process::CommandExt;
+                            const CREATE_NO_WINDOW: u32 = 0x08000000;
+                            let _ = std::process::Command::new("powershell")
+                                .args(["-NoProfile", "-Command", &format!("Set-Clipboard -Value '{}'", text.replace('\'', "''"))])
+                                .creation_flags(CREATE_NO_WINDOW)
+                                .output();
+                        });
+                    }
+                    UserEvent::SystemCommandRequest { command } => {
+                        info!("[System] Executing system command: '{}'", command);
+                        tokio::task::spawn_blocking(move || {
+                            #[cfg(target_os = "windows")]
+                            use std::os::windows::process::CommandExt;
+                            const CREATE_NO_WINDOW: u32 = 0x08000000;
+                            let _ = std::process::Command::new("cmd")
+                                .args(["/C", &command])
+                                .creation_flags(CREATE_NO_WINDOW)
+                                .spawn();
+                        });
+                    }
                     UserEvent::ResizeRequest { height } => {
                         let clamped = height.max(80.0).min(800.0);
                         window.set_inner_size(LogicalSize::new(800.0, clamped));
@@ -549,6 +757,22 @@ fn launch_file(path: &str) {
         return;
     }
     info!("[Launch] Request to execute: '{}'", path);
+    if path.starts_with("shell:AppsFolder\\") {
+        let exe_w = windows::core::HSTRING::from("explorer.exe");
+        let args_w = windows::core::HSTRING::from(path);
+        unsafe {
+            let res = windows::Win32::UI::Shell::ShellExecuteW(
+                windows::Win32::Foundation::HWND(std::ptr::null_mut()),
+                windows::core::PCWSTR(std::ptr::null()),
+                windows::core::PCWSTR(exe_w.as_ptr()),
+                windows::core::PCWSTR(args_w.as_ptr()),
+                windows::core::PCWSTR(std::ptr::null()),
+                windows::Win32::UI::WindowsAndMessaging::SW_SHOW,
+            );
+            info!("[Launch] UWP App ShellExecuteW result for '{}': {:?}", path, res);
+        }
+        return;
+    }
     let path_w = windows::core::HSTRING::from(path);
     unsafe {
         let res = windows::Win32::UI::Shell::ShellExecuteW(

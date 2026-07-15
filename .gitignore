@@ -52,3 +52,9 @@ Desktop.ini
 # Scratch and custom temporary folders
 /scratch/
 
+# Agent plans and checklists
+/implementation_plan.md
+/walkthrough.md
+/task.md
+
+

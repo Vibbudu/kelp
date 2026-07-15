@@ -34,6 +34,8 @@
             font-family: 'Inter', sans-serif;
             user-select: none;
             -webkit-user-select: none;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
         }
 
         /* ===== SYSTEM THEME DESIGN TOKENS (DEFAULT: DARK MODE) ===== */
@@ -114,7 +116,7 @@
             overflow: hidden;
             display: flex;
             flex-direction: column;
-            transition: height 150ms cubic-bezier(0.2, 0.8, 0.2, 1);
+            /* No height transition — resize is handled instantly via IPC to prevent jitter */
         }
 
         /* Entrance / Exit scale + fade animations */
@@ -228,11 +230,17 @@
 
         /* ===== RESULTS AREA ===== */
         #results-container {
-            display: none;
+            display: flex;
+            padding: 0 var(--space-sm);
+            max-height: 0;
+            overflow: hidden;
+            flex-direction: column;
+        }
+
+        #results-container.has-results {
             padding: var(--space-sm);
             max-height: 400px;
             overflow-y: auto;
-            flex-direction: column;
         }
 
         #results-container::-webkit-scrollbar {
@@ -260,7 +268,7 @@
             top: 0px;
             background: var(--row-selected);
             border-radius: var(--radius);
-            transition: top 120ms cubic-bezier(0.2, 0.8, 0.2, 1), height 120ms cubic-bezier(0.2, 0.8, 0.2, 1);
+            transition: top 80ms cubic-bezier(0.2, 0.8, 0.2, 1), height 80ms cubic-bezier(0.2, 0.8, 0.2, 1);
             pointer-events: none;
             z-index: 0;
         }
@@ -279,7 +287,7 @@
             cursor: pointer;
             position: relative;
             z-index: 1; /* Renders content above sliding overlay */
-            transition: transform 120ms ease-out, opacity 120ms ease-out;
+            transition: transform 80ms ease-out, opacity 80ms ease-out;
         }
 
         /* Row entrance transitions */
@@ -291,14 +299,60 @@
         .result-row.row-enter-active {
             opacity: 1;
             transform: translateY(0);
-            transition: opacity 120ms ease-out, transform 120ms ease-out;
+            transition: opacity 80ms ease-out, transform 80ms ease-out;
         }
 
         /* Row removal transitions */
         .result-row.row-exit {
             opacity: 0;
             transform: scale(0.95);
-            transition: opacity 120ms ease-out, transform 120ms ease-out;
+            transition: opacity 80ms ease-out, transform 80ms ease-out;
+        }
+
+        /* ===== BREADCRUMB BAR (Folder Navigation) ===== */
+        #breadcrumb-bar {
+            display: none;
+            padding: 6px 16px;
+            align-items: center;
+            gap: 6px;
+            border-bottom: 1px solid var(--border-color);
+            background: rgba(0, 0, 0, 0.03);
+            font-family: 'Geist', sans-serif;
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            letter-spacing: 0.02em;
+            overflow: hidden;
+            white-space: nowrap;
+        }
+
+        .breadcrumb-back {
+            background: transparent;
+            border: none;
+            color: var(--primary);
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: var(--radius-sm);
+            font-family: 'Geist', sans-serif;
+            font-size: 12px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .breadcrumb-back:hover {
+            background: rgba(0, 120, 212, 0.08);
+        }
+
+        .breadcrumb-back .material-symbols-outlined {
+            font-size: 16px;
+        }
+
+        .breadcrumb-path {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            flex: 1;
         }
 
         /* ===== RESULT LEFT ===== */
@@ -398,12 +452,260 @@
 
         /* ===== FOOTER ===== */
         #footer {
-            display: none;
-            padding: var(--space-sm);
-            border-top: 1px solid var(--border-color);
+            display: flex;
+            padding: 0 var(--space-sm);
+            max-height: 0;
+            overflow: hidden;
+            border-top: 0px solid transparent;
             background: rgba(0, 0, 0, 0.05);
             justify-content: space-between;
             align-items: center;
+        }
+
+        #footer.show-footer {
+            padding: var(--space-sm);
+            max-height: 50px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        /* ===== SHUTDOWN TIMER PANEL ===== */
+        #timer-panel {
+            display: none;
+            flex-direction: column;
+            padding: 12px;
+            gap: 12px;
+        }
+
+        .timer-header {
+            background: var(--primary);
+            border-radius: var(--radius-lg);
+            padding: 16px 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .timer-header-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .timer-header-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .timer-icon-box {
+            width: 40px;
+            height: 40px;
+            border-radius: var(--radius);
+            background: rgba(255,255,255,0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .timer-icon-box .material-symbols-outlined {
+            color: white;
+            font-size: 24px;
+        }
+
+        .timer-title {
+            font-family: 'Inter', sans-serif;
+            font-size: 18px;
+            font-weight: 600;
+            color: white;
+            line-height: 24px;
+        }
+
+        .timer-subtitle {
+            font-family: 'Inter', sans-serif;
+            font-size: 12px;
+            font-weight: 500;
+            color: rgba(255,255,255,0.7);
+            letter-spacing: 0.02em;
+        }
+
+        .timer-header-right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .timer-value {
+            font-family: 'Inter', sans-serif;
+            font-size: 20px;
+            font-weight: 600;
+            color: white;
+        }
+
+        .timer-schedule-btn {
+            background: white;
+            color: var(--primary);
+            border: none;
+            padding: 8px 20px;
+            border-radius: var(--radius);
+            font-family: 'Inter', sans-serif;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            letter-spacing: 0.02em;
+            transition: all 150ms;
+        }
+
+        .timer-schedule-btn:hover {
+            background: rgba(255,255,255,0.9);
+            transform: scale(1.02);
+        }
+
+        .timer-schedule-btn:active {
+            transform: scale(0.98);
+        }
+
+        /* Quick Chips */
+        .timer-chips {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .timer-chip {
+            background: rgba(255,255,255,0.1);
+            color: white;
+            border: 1px solid rgba(255,255,255,0.1);
+            padding: 6px 14px;
+            border-radius: 9999px;
+            font-family: 'Inter', sans-serif;
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 150ms;
+        }
+
+        .timer-chip:hover {
+            background: rgba(255,255,255,0.2);
+        }
+
+        .timer-chip.active {
+            background: rgba(255,255,255,0.3);
+            border-color: rgba(255,255,255,0.2);
+            font-weight: 700;
+        }
+
+        /* Slider Container */
+        .timer-slider-container {
+            background: rgba(0,0,0,0.1);
+            border-radius: var(--radius-lg);
+            padding: 16px;
+        }
+
+        .timer-slider-wrapper {
+            position: relative;
+            width: 100%;
+            height: 24px;
+            display: flex;
+            align-items: center;
+        }
+
+        .timer-slider-track {
+            position: absolute;
+            left: 0;
+            right: 0;
+            height: 6px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 3px;
+        }
+
+        .timer-slider-fill {
+            position: absolute;
+            left: 0;
+            height: 6px;
+            background: white;
+            border-radius: 3px;
+            transition: width 200ms cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .timer-slider-input {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            cursor: pointer;
+            z-index: 2;
+            margin: 0;
+        }
+
+        .timer-slider-thumb {
+            position: absolute;
+            width: 18px;
+            height: 18px;
+            background: white;
+            border-radius: 50%;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.3), 0 4px 8px rgba(0,0,0,0.1);
+            border: 0.5px solid rgba(0,0,0,0.1);
+            pointer-events: none;
+            transition: left 200ms cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 1;
+        }
+
+        .timer-slider-labels {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 4px 0;
+        }
+
+        .timer-slider-label {
+            font-family: 'Inter', sans-serif;
+            font-size: 11px;
+            font-weight: 600;
+            color: rgba(255,255,255,0.5);
+            letter-spacing: 0.05em;
+            transition: color 150ms;
+        }
+
+        .timer-slider-label.active {
+            color: white;
+            font-weight: 700;
+        }
+
+        /* Alternative Actions Grid */
+        .timer-alternatives {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        .timer-alt-btn {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            background: rgba(142, 149, 160, 0.08);
+            border: none;
+            border-radius: var(--radius-lg);
+            cursor: pointer;
+            transition: all 150ms;
+            color: var(--text-primary);
+            font-family: 'Inter', sans-serif;
+            font-size: 14px;
+            font-weight: 400;
+            text-align: left;
+        }
+
+        .timer-alt-btn:hover {
+            background: rgba(142, 149, 160, 0.15);
+        }
+
+        .timer-alt-btn .material-symbols-outlined {
+            color: var(--text-secondary);
+            font-size: 20px;
+            transition: color 150ms;
+        }
+
+        .timer-alt-btn:hover .material-symbols-outlined {
+            color: var(--primary);
         }
 
         #debug-stats {
@@ -458,6 +760,66 @@
         </div>
     </div>
 
+    <!-- Breadcrumb Bar (Folder Navigation) -->
+    <div id="breadcrumb-bar">
+        <button class="breadcrumb-back" id="breadcrumb-back-btn" onclick="exitFolderBrowse()">
+            <span class="material-symbols-outlined">arrow_back</span>
+            Back
+        </button>
+        <span class="breadcrumb-path" id="breadcrumb-path"></span>
+    </div>
+
+    <!-- Shutdown Timer Panel -->
+    <div id="timer-panel">
+        <div class="timer-header">
+            <div class="timer-header-top">
+                <div class="timer-header-left">
+                    <div class="timer-icon-box">
+                        <span class="material-symbols-outlined">power_settings_new</span>
+                    </div>
+                    <div>
+                        <div class="timer-title">Schedule Shutdown</div>
+                        <div class="timer-subtitle">System Utility</div>
+                    </div>
+                </div>
+                <div class="timer-header-right">
+                    <span class="timer-value" id="timer-value-display">1h</span>
+                    <button class="timer-schedule-btn" onclick="executeTimerAction()">Schedule</button>
+                </div>
+            </div>
+            <div class="timer-chips" id="timer-chips">
+                <button class="timer-chip" onclick="setTimerPreset(0)">15m</button>
+                <button class="timer-chip" onclick="setTimerPreset(1)">30m</button>
+                <button class="timer-chip active" onclick="setTimerPreset(2)">1h</button>
+                <button class="timer-chip" onclick="setTimerPreset(3)">2h</button>
+            </div>
+            <div class="timer-slider-container">
+                <div class="timer-slider-wrapper">
+                    <div class="timer-slider-track"></div>
+                    <div class="timer-slider-fill" id="timer-slider-fill" style="width: 66.6%;"></div>
+                    <div class="timer-slider-thumb" id="timer-slider-thumb" style="left: calc(66.6% - 9px);"></div>
+                    <input type="range" min="0" max="3" step="1" value="2" class="timer-slider-input" id="timer-slider" oninput="onTimerSliderInput(this.value)">
+                </div>
+                <div class="timer-slider-labels">
+                    <span class="timer-slider-label">15m</span>
+                    <span class="timer-slider-label">30m</span>
+                    <span class="timer-slider-label active">1h</span>
+                    <span class="timer-slider-label">2h</span>
+                </div>
+            </div>
+        </div>
+        <div class="timer-alternatives">
+            <button class="timer-alt-btn" onclick="executeSystemCommand('rundll32.exe powrprof.dll,SetSuspendState 0,1,0')">
+                <span class="material-symbols-outlined">bedtime</span>
+                Sleep instead
+            </button>
+            <button class="timer-alt-btn" onclick="executeSystemCommand('shutdown /r /t 0')">
+                <span class="material-symbols-outlined">restart_alt</span>
+                Restart
+            </button>
+        </div>
+    </div>
+
     <!-- Results Area -->
     <div id="results-container">
         <div id="results-list">
@@ -483,6 +845,8 @@
     const resultsList = document.getElementById('results-list');
     const selectionIndicator = document.getElementById('selection-indicator');
     const footer = document.getElementById('footer');
+    const breadcrumbBar = document.getElementById('breadcrumb-bar');
+    const breadcrumbPath = document.getElementById('breadcrumb-path');
 
     // ===== State =====
     let rawResults = [];
@@ -491,6 +855,26 @@
     let searchTimeout = null;
     let hideTimeout = null;
     let lastQuery = "";
+
+    // Folder drill-down state
+    let isBrowsingFolder = false;
+    let browseHistory = []; // stack of { path, results, query, wasBrowsing, isActions, isTimer } for back navigation
+    let currentBrowsePath = null;
+
+    // Context Actions state
+    let isShowingActions = false;
+    let actionItems = [];
+    let actionTarget = null; // target file result
+
+    // Shutdown Timer state
+    let isShowingTimer = false;
+    let timerSliderIndex = 2; // Default to '1h' (index 2)
+    const TIMER_PRESETS = [
+        { label: '15m', seconds: 900 },
+        { label: '30m', seconds: 1800 },
+        { label: '1h', seconds: 3600 },
+        { label: '2h', seconds: 7200 }
+    ];
 
     // ===== Dark Mode System Theme Synchronization =====
     function applySystemTheme() {
@@ -591,6 +975,14 @@
             return { icon: 'draft', color: '#5F6368' };
         }
 
+        if (fileType === 'websearch') {
+            return { icon: 'travel_explore', color: '#4285F4' };
+        }
+
+        if (fileType === 'systemcommand') {
+            return { icon: 'power_settings_new', color: '#ffffff' };
+        }
+
         return { icon: 'draft', color: '#5F6368' };
     }
 
@@ -602,7 +994,173 @@
         if (ft === 'shortcut') return 'SHORTCUT';
         if (ft === 'folder' || ft === 'directory') return 'FOLDER';
         if (ft === 'file') return 'FILE';
+        if (ft === 'websearch') return 'WEB';
+        if (ft === 'systemcommand') return 'SYSTEM';
         return fileType.toUpperCase();
+    }
+
+    const SYSTEM_COMMANDS = [
+        { keywords: ['shutdown', 'shut down', 'power off', 'turn off'], name: 'Shut Down', icon: 'power_settings_new', command: 'shutdown /s /t 0', hasTimer: true },
+        { keywords: ['restart', 'reboot'], name: 'Restart', icon: 'restart_alt', command: 'shutdown /r /t 0', hasTimer: true },
+        { keywords: ['sleep', 'suspend'], name: 'Sleep', icon: 'bedtime', command: 'rundll32.exe powrprof.dll,SetSuspendState 0,1,0', hasTimer: false },
+        { keywords: ['lock', 'lock screen'], name: 'Lock Screen', icon: 'lock', command: 'rundll32.exe user32.dll,LockWorkStation', hasTimer: false },
+        { keywords: ['sign out', 'log off', 'logout'], name: 'Sign Out', icon: 'logout', command: 'shutdown /l', hasTimer: false }
+    ];
+
+    function getNaturalLanguageSchedule(query) {
+        if (!query) return null;
+        const q = query.trim().toLowerCase();
+
+        const relativeRegex = /^(shutdown|restart|shut\s*down)\s+in\s+(\d+)\s*(min|mins|minute|minutes|hr|hrs|hour|hours|m|h)s?$/i;
+        const absoluteRegex = /^(shutdown|restart|shut\s*down)\s+at\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?$/i;
+
+        let action = null;
+        let seconds = 0;
+        let displayTitle = "";
+        let displaySubtext = "";
+        let sysIcon = "power_settings_new";
+        let command = "";
+
+        const relMatch = q.match(relativeRegex);
+        if (relMatch) {
+            const actionStr = relMatch[1].toLowerCase().replace(/\s+/g, '');
+            const value = parseInt(relMatch[2]);
+            const unit = relMatch[3].toLowerCase();
+
+            if (actionStr === 'restart') {
+                action = 'restart';
+                sysIcon = 'restart_alt';
+                command = `shutdown /r /t `;
+            } else {
+                action = 'shutdown';
+                sysIcon = 'power_settings_new';
+                command = `shutdown /s /t `;
+            }
+
+            if (unit.startsWith('m')) {
+                seconds = value * 60;
+                displayTitle = `Schedule ${action === 'restart' ? 'Restart' : 'Shutdown'} in ${value} minute${value > 1 ? 's' : ''}`;
+            } else {
+                seconds = value * 3600;
+                displayTitle = `Schedule ${action === 'restart' ? 'Restart' : 'Shutdown'} in ${value} hour${value > 1 ? 's' : ''}`;
+            }
+
+            const now = new Date();
+            const target = new Date(now.getTime() + seconds * 1000);
+            const targetTimeStr = target.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            displaySubtext = `Scheduled for ${targetTimeStr} (${displayTitle.toLowerCase().replace('schedule ', '')})`;
+            command += seconds;
+        } else {
+            const absMatch = q.match(absoluteRegex);
+            if (absMatch) {
+                const actionStr = absMatch[1].toLowerCase().replace(/\s+/g, '');
+                let hour = parseInt(absMatch[2]);
+                const minute = absMatch[3] ? parseInt(absMatch[3]) : 0;
+                const ampm = absMatch[4] ? absMatch[4].toLowerCase() : null;
+
+                if (hour < 0 || hour > 23 || (ampm && (hour < 1 || hour > 12)) || minute < 0 || minute > 59) {
+                    return null;
+                }
+
+                if (actionStr === 'restart') {
+                    action = 'restart';
+                    sysIcon = 'restart_alt';
+                    command = `shutdown /r /t `;
+                } else {
+                    action = 'shutdown';
+                    sysIcon = 'power_settings_new';
+                    command = `shutdown /s /t `;
+                }
+
+                if (ampm === 'pm' && hour < 12) hour += 12;
+                if (ampm === 'am' && hour === 12) hour = 0;
+
+                const now = new Date();
+                let target = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hour, minute, 0);
+                if (target <= now) {
+                    target.setDate(target.getDate() + 1);
+                }
+
+                seconds = Math.round((target.getTime() - now.getTime()) / 1000);
+                
+                const totalMinutes = Math.round(seconds / 60);
+                const displayHours = Math.floor(totalMinutes / 60);
+                const displayMins = totalMinutes % 60;
+                
+                let durationStr = "";
+                if (displayHours > 0) {
+                    durationStr += `${displayHours} hour${displayHours > 1 ? 's' : ''}`;
+                }
+                if (displayMins > 0) {
+                    if (durationStr) durationStr += " and ";
+                    durationStr += `${displayMins} minute${displayMins > 1 ? 's' : ''}`;
+                }
+                if (!durationStr) {
+                    durationStr = "less than a minute";
+                }
+
+                const targetTimeStr = target.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                displayTitle = `Schedule ${action === 'restart' ? 'Restart' : 'Shutdown'} at ${targetTimeStr}`;
+                displaySubtext = `Scheduled in ${durationStr}`;
+                command += seconds;
+            }
+        }
+
+        if (action) {
+            return {
+                metadata: {
+                    name: displayTitle,
+                    extension: '',
+                    parent_folder: displaySubtext,
+                    full_path: command,
+                    modified_date: 0,
+                    size: 0,
+                    file_type: 'SystemCommand'
+                },
+                score: 1.0,
+                match_type: 'SystemCommand',
+                icon_base64: null,
+                _systemIcon: sysIcon,
+                _hasTimer: false
+            };
+        }
+
+        return null;
+    }
+
+    function getMatchingSystemCommands(query) {
+        if (!query) return [];
+        const cleanQuery = query.trim().toLowerCase();
+        if (cleanQuery.length < 2) return [];
+
+        // If the query is actually a relative or absolute natural language schedule pattern, skip showing full static system command results to keep layout uncluttered
+        const isRelative = /^(shutdown|restart|shut\s*down)\s+in\s+/i.test(cleanQuery);
+        const isAbsolute = /^(shutdown|restart|shut\s*down)\s+at\s+/i.test(cleanQuery);
+        if (isRelative || isAbsolute) return [];
+
+        const matches = [];
+        for (const cmd of SYSTEM_COMMANDS) {
+            const matchesKeyword = cmd.keywords.some(kw => kw.includes(cleanQuery) || cleanQuery.includes(kw));
+            if (matchesKeyword) {
+                matches.push({
+                    metadata: {
+                        name: cmd.name,
+                        extension: '',
+                        parent_folder: 'System Utility',
+                        full_path: cmd.command,
+                        modified_date: 0,
+                        size: 0,
+                        file_type: 'SystemCommand'
+                    },
+                    score: 1.0,
+                    match_type: 'SystemCommand',
+                    icon_base64: null,
+                    _systemIcon: cmd.icon,
+                    _hasTimer: cmd.hasTimer
+                });
+            }
+        }
+        return matches;
     }
 
     // ===== Show Launcher =====
@@ -617,6 +1175,15 @@
         rawResults = [];
         lastQuery = "";
         currentTab = 'all';
+        isBrowsingFolder = false;
+        isShowingActions = false;
+        isShowingTimer = false;
+        actionItems = [];
+        actionTarget = null;
+        browseHistory = [];
+        currentBrowsePath = null;
+        breadcrumbBar.style.display = 'none';
+        document.getElementById('timer-panel').style.display = 'none';
         renderResults();
         updateChipStyles();
         setTimeout(() => {
@@ -647,7 +1214,18 @@
 
     // ===== Set Results (called from Rust) =====
     function setResults(results, debugInfo) {
-        rawResults = results || [];
+        const query = searchInput.value;
+        const sysMatches = getMatchingSystemCommands(query);
+        const nlMatch = getNaturalLanguageSchedule(query);
+        const fileResults = results || [];
+
+        // Prepend natural language matches before static system matches and files
+        let allResults = [...sysMatches];
+        if (nlMatch) {
+            allResults = [nlMatch, ...allResults];
+        }
+
+        rawResults = [...allResults, ...fileResults];
         renderResults();
 
         // Update debug diagnostics in HTML if debugInfo is present
@@ -713,18 +1291,15 @@
     function renderResults() {
         const filtered = getFilteredResults();
 
-        // 1. Remove any remaining exit rows immediately to prevent synchronization bugs
+        // 1. Remove any remaining exit rows immediately to prevent layout interference
         const staleExitRows = resultsList.querySelectorAll('.result-row.row-exit');
         staleExitRows.forEach(row => {
-            if (row.parentNode) {
-                row.parentNode.removeChild(row);
-            }
+            if (row.parentNode) row.parentNode.removeChild(row);
         });
 
         if (filtered.length === 0) {
-            resultsContainer.style.display = 'none';
-            footer.style.display = 'none';
-            // Keep selection indicator hidden
+            resultsContainer.classList.remove('has-results');
+            footer.classList.remove('show-footer');
             selectionIndicator.style.height = '0px';
             const rows = resultsList.querySelectorAll('.result-row');
             rows.forEach(r => r.remove());
@@ -732,12 +1307,12 @@
             return;
         }
 
-        // Reset selection to index 0 if the query actually changed
+        // Detect query change for scroll/selection reset
         const currentQuery = searchInput.value;
         const queryChanged = (currentQuery !== lastQuery);
         lastQuery = currentQuery;
 
-        // Get currently selected row path to preserve selection stability (only if query didn't change)
+        // Preserve selection stability when query hasn't changed
         let prevSelectedPath = null;
         if (!queryChanged) {
             const currentActiveRows = resultsList.querySelectorAll('.result-row:not(.row-exit)');
@@ -746,8 +1321,12 @@
             }
         }
 
-        resultsContainer.style.display = 'flex';
-        footer.style.display = 'flex';
+        resultsContainer.classList.add('has-results');
+        if (isBrowsingFolder || isShowingActions) {
+            footer.classList.remove('show-footer');
+        } else {
+            footer.classList.add('show-footer');
+        }
 
         // Build a map of existing active rows by path
         const existingRows = {};
@@ -756,19 +1335,19 @@
             existingRows[row.getAttribute('data-path')] = row;
         });
 
-        // Determine which paths are in the new results
         const newPaths = new Set(filtered.map(r => r.metadata.full_path));
 
-        // Remove rows no longer in results (animate out)
+        // Remove rows no longer in results — immediate removal on query change, animated otherwise
         currentRows.forEach(row => {
             const path = row.getAttribute('data-path');
             if (!newPaths.has(path)) {
-                row.classList.add('row-exit');
-                setTimeout(() => {
-                    if (row.parentNode) {
-                        row.parentNode.removeChild(row);
-                    }
-                }, 120);
+                if (queryChanged) {
+                    // Instant removal to prevent layout interference
+                    if (row.parentNode) row.parentNode.removeChild(row);
+                } else {
+                    row.classList.add('row-exit');
+                    setTimeout(() => { if (row.parentNode) row.parentNode.removeChild(row); }, 80);
+                }
             }
         });
 
@@ -777,91 +1356,89 @@
             filtered.forEach((result, index) => {
                 const path = result.metadata.full_path;
                 let row = existingRows[path];
+                const isNew = !row;
 
-                if (!row) {
-                    // Create new row
+                if (isNew) {
                     row = document.createElement('button');
-                    row.className = 'result-row row-enter';
+                    row.className = queryChanged ? 'result-row' : 'result-row row-enter';
                     row.setAttribute('data-path', path);
-                    row.onclick = function () {
-                        setSelectedIndex(index);
-                        executeSelected();
-                    };
+                    row.setAttribute('data-file-type', (result.metadata.file_type || '').toLowerCase());
 
-                    // Sliding indicator selection hook on physical mouse moves
                     row.addEventListener('mousemove', () => {
                         const activeRows = resultsList.querySelectorAll('.result-row:not(.row-exit)');
                         const idx = Array.from(activeRows).indexOf(row);
-                        if (idx !== -1 && selectedIndex !== idx) {
-                            setSelectedIndex(idx);
-                        }
+                        if (idx !== -1 && selectedIndex !== idx) setSelectedIndex(idx);
                     });
 
                     resultsList.appendChild(row);
 
-                    // Trigger entrance animation
-                    requestAnimationFrame(() => {
-                        row.classList.remove('row-enter');
-                        row.classList.add('row-enter-active');
-                    });
+                    if (!queryChanged) {
+                        requestAnimationFrame(() => {
+                            row.classList.remove('row-enter');
+                            row.classList.add('row-enter-active');
+                        });
+                    }
                 } else {
-                    // Move existing row to correct position
                     resultsList.appendChild(row);
                 }
 
-                // Render dynamic item structure with highlight match
-                const highlightedName = highlightMatch(result.metadata.name, currentQuery);
-                const displayPath = formatPath(result.metadata.parent_folder);
-                const displayType = formatFileType(result.metadata.file_type);
+                // Build row content — generate a content key to skip unnecessary rebuilds
+                const contentKey = `${result.metadata.name}|${result.metadata.parent_folder}|${result.metadata.file_type}|${result.icon_base64 || ''}|${currentQuery}|${result._systemIcon || ''}`;
+                if (row.getAttribute('data-content-key') !== contentKey) {
+                    row.setAttribute('data-content-key', contentKey);
 
-                // Check if extracted binary base64 icon is present
-                let iconHtml = '';
-                if (result.icon_base64 && result.icon_base64.length > 0) {
-                    iconHtml = `<img src="data:image/png;base64,${result.icon_base64}" style="width: 24px; height: 24px; object-fit: contain;" />`;
-                } else {
-                    const iconInfo = getIconForFile(result.metadata);
-                    iconHtml = `<span class="material-symbols-outlined" style="color: ${iconInfo.color}; font-size: 24px; font-variation-settings: 'FILL' 1;">${iconInfo.icon}</span>`;
+                    const highlightedName = highlightMatch(result.metadata.name, isBrowsingFolder ? '' : currentQuery);
+                    const displayPath = formatPath(result.metadata.parent_folder);
+                    const displayType = formatFileType(result.metadata.file_type);
+
+                    let iconHtml = '';
+                    let iconBoxStyle = '';
+                    if (result._systemIcon) {
+                        iconHtml = `<span class="material-symbols-outlined" style="color: white; font-size: 24px; font-variation-settings: 'FILL' 1;">${result._systemIcon}</span>`;
+                        iconBoxStyle = 'background: var(--primary); border-color: var(--primary);';
+                    } else if (result.icon_base64 && result.icon_base64.length > 0) {
+                        iconHtml = `<img src="data:image/png;base64,${result.icon_base64}" style="width: 24px; height: 24px; object-fit: contain;" />`;
+                    } else {
+                        const iconInfo = getIconForFile(result.metadata);
+                        iconHtml = `<span class="material-symbols-outlined" style="color: ${iconInfo.color}; font-size: 24px; font-variation-settings: 'FILL' 1;">${iconInfo.icon}</span>`;
+                    }
+
+                    row.innerHTML = `
+                        <div class="result-left">
+                            <div class="result-icon-box" style="${iconBoxStyle}">${iconHtml}</div>
+                            <div class="result-text">
+                                <span class="result-name">${highlightedName}</span>
+                                <span class="result-path">${escapeHtml(displayPath)}</span>
+                            </div>
+                        </div>
+                        <div class="result-right">
+                            <span class="result-type">${displayType}</span>
+                            ${displayType === 'ACTION OPTION' ? '' : '<span class="result-arrow material-symbols-outlined">arrow_forward_ios</span>'}
+                        </div>
+                    `;
                 }
 
-                row.innerHTML = `
-                    <div class="result-left">
-                        <div class="result-icon-box">
-                            ${iconHtml}
-                        </div>
-                        <div class="result-text">
-                            <span class="result-name">${highlightedName}</span>
-                            <span class="result-path">${escapeHtml(displayPath)}</span>
-                        </div>
-                    </div>
-                    <div class="result-right">
-                        <span class="result-type">${displayType}</span>
-                        <span class="result-arrow material-symbols-outlined">arrow_forward_ios</span>
-                    </div>
-                `;
-
-                // Update click handler to reflect current index
                 row.onclick = function () {
                     setSelectedIndex(index);
                     executeSelected();
                 };
             });
 
-            // Find new index of previously selected path for stability
+            // Determine selection index
             let newSelectedIndex = 0;
             if (prevSelectedPath) {
                 const matchIndex = filtered.findIndex(r => r.metadata.full_path === prevSelectedPath);
-                if (matchIndex !== -1) {
-                    newSelectedIndex = matchIndex;
-                }
+                if (matchIndex !== -1) newSelectedIndex = matchIndex;
             }
 
+            // On query change: disable indicator animation and force scroll to top
             if (queryChanged) {
                 selectionIndicator.style.transition = 'none';
+                resultsContainer.scrollTop = 0;
             }
             setSelectedIndex(newSelectedIndex);
             if (queryChanged) {
-                // Force layout reflow
-                selectionIndicator.offsetHeight;
+                selectionIndicator.offsetHeight; // force reflow
                 selectionIndicator.style.transition = '';
             }
             triggerResize();
@@ -905,19 +1482,344 @@
     }
 
     // ===== Search Web =====
-    function searchWeb() {
-        const query = searchInput.value;
-        window.ipc.postMessage(JSON.stringify({ type: 'search_web', query: query }));
+    function searchWeb(query) {
+        const q = query || searchInput.value;
+        window.ipc.postMessage(JSON.stringify({ type: 'search_web', query: q }));
         hideLauncher();
     }
 
-    // ===== Trigger Resize (coalesced 50ms) =====
+    // ===== Folder Drill-Down =====
+    function browseFolderAt(path) {
+        // Save current state to history for back navigation
+        browseHistory.push({
+            path: currentBrowsePath,
+            results: rawResults,
+            query: searchInput.value,
+            wasBrowsing: isBrowsingFolder
+        });
+        currentBrowsePath = path;
+        isBrowsingFolder = true;
+        breadcrumbBar.style.display = 'flex';
+        breadcrumbPath.textContent = path;
+        // Request folder contents from Rust backend
+        window.ipc.postMessage(JSON.stringify({ type: 'browse_folder', path: path }));
+    }
+
+    // Called from Rust when folder contents are ready
+    function setFolderContents(results) {
+        rawResults = results || [];
+        lastQuery = ''; // force full re-render
+        renderResults();
+    }
+
+    function exitFolderBrowse() {
+        if (browseHistory.length > 0) {
+            const prev = browseHistory.pop();
+            isBrowsingFolder = prev.wasBrowsing;
+            currentBrowsePath = prev.path;
+            rawResults = prev.results;
+            if (!isBrowsingFolder) {
+                breadcrumbBar.style.display = 'none';
+            } else {
+                breadcrumbPath.textContent = currentBrowsePath || '';
+            }
+            lastQuery = ''; // force full re-render
+            renderResults();
+        } else {
+            isBrowsingFolder = false;
+            currentBrowsePath = null;
+            breadcrumbBar.style.display = 'none';
+            // Re-trigger current search
+            const query = searchInput.value;
+            if (query) {
+                window.ipc.postMessage(JSON.stringify({ type: 'search', query: query }));
+            } else {
+                rawResults = [];
+                renderResults();
+            }
+        }
+    }
+
+    // ===== Context Actions =====
+    function showContextActions(result) {
+        if (!result) return;
+        
+        isShowingActions = true;
+        actionTarget = result;
+        selectedIndex = 0;
+
+        const ft = (result.metadata.file_type || '').toLowerCase();
+        const path = result.metadata.full_path;
+
+        // Save current search state to history for back navigation
+        browseHistory.push({
+            path: currentBrowsePath,
+            results: rawResults,
+            query: searchInput.value,
+            wasBrowsing: isBrowsingFolder,
+            isActions: false,
+            isTimer: false
+        });
+
+        // Hide normal back button on breadcrumb bar for actions
+        document.getElementById('breadcrumb-back-btn').style.display = 'none';
+        breadcrumbBar.style.display = 'flex';
+        breadcrumbPath.textContent = `Actions: ${result.metadata.name}`;
+
+        actionItems = [];
+        
+        // Build actions
+        if (ft === 'application' || ft === 'shortcut') {
+            actionItems.push({
+                name: 'Open',
+                icon: 'open_in_new',
+                execute: () => {
+                    window.ipc.postMessage(JSON.stringify({ type: 'select', query: searchInput.value, path: path }));
+                    hideLauncher();
+                }
+            });
+            actionItems.push({
+                name: 'Run as Administrator',
+                icon: 'admin_panel_settings',
+                execute: () => {
+                    window.ipc.postMessage(JSON.stringify({ type: 'run_as_admin', path: path }));
+                    hideLauncher();
+                }
+            });
+            actionItems.push({
+                name: 'Open File Location',
+                icon: 'folder_open',
+                execute: () => {
+                    window.ipc.postMessage(JSON.stringify({ type: 'open_file_location', path: path }));
+                    hideLauncher();
+                }
+            });
+            actionItems.push({
+                name: 'Copy Path to Clipboard',
+                icon: 'content_copy',
+                execute: () => {
+                    window.ipc.postMessage(JSON.stringify({ type: 'copy_to_clipboard', text: path }));
+                    hideLauncher();
+                }
+            });
+        } else if (ft === 'file') {
+            actionItems.push({
+                name: 'Open',
+                icon: 'open_in_new',
+                execute: () => {
+                    window.ipc.postMessage(JSON.stringify({ type: 'select', query: searchInput.value, path: path }));
+                    hideLauncher();
+                }
+            });
+            actionItems.push({
+                name: 'Open File Location',
+                icon: 'folder_open',
+                execute: () => {
+                    window.ipc.postMessage(JSON.stringify({ type: 'open_file_location', path: path }));
+                    hideLauncher();
+                }
+            });
+            actionItems.push({
+                name: 'Copy Path to Clipboard',
+                icon: 'content_copy',
+                execute: () => {
+                    window.ipc.postMessage(JSON.stringify({ type: 'copy_to_clipboard', text: path }));
+                    hideLauncher();
+                }
+            });
+        } else {
+            // Generic Action
+            actionItems.push({
+                name: 'Open',
+                icon: 'open_in_new',
+                execute: () => {
+                    window.ipc.postMessage(JSON.stringify({ type: 'select', query: searchInput.value, path: path }));
+                    hideLauncher();
+                }
+            });
+        }
+
+        // Map action items to rawResults structure so we can use standard renderResults
+        rawResults = actionItems.map(item => ({
+            metadata: {
+                name: item.name,
+                extension: '',
+                parent_folder: 'Action Option',
+                full_path: `action://${item.name}`,
+                modified_date: 0,
+                size: 0,
+                file_type: 'ActionOption'
+            },
+            score: 1.0,
+            match_type: 'ActionOption',
+            icon_base64: null,
+            _systemIcon: item.icon
+        }));
+
+        lastQuery = ''; // force redraw
+        renderResults();
+    }
+
+    function exitContextActions() {
+        isShowingActions = false;
+        actionTarget = null;
+        actionItems = [];
+        document.getElementById('breadcrumb-back-btn').style.display = 'flex';
+        
+        if (browseHistory.length > 0) {
+            const prev = browseHistory.pop();
+            isBrowsingFolder = prev.wasBrowsing;
+            currentBrowsePath = prev.path;
+            rawResults = prev.results;
+            if (!isBrowsingFolder) {
+                breadcrumbBar.style.display = 'none';
+            } else {
+                breadcrumbPath.textContent = currentBrowsePath || '';
+            }
+            lastQuery = ''; // force redraw
+            renderResults();
+        } else {
+            breadcrumbBar.style.display = 'none';
+            rawResults = [];
+            renderResults();
+        }
+    }
+
+    // ===== Shutdown/Restart Timer Panel =====
+    let timerType = 'shutdown'; // 'shutdown' or 'restart'
+
+    function showTimerPanel(type) {
+        timerType = type || 'shutdown';
+        isShowingTimer = true;
+        isShowingActions = false;
+        isBrowsingFolder = false;
+        
+        // Collapse results list and footer smoothly
+        resultsContainer.classList.remove('has-results');
+        footer.classList.remove('show-footer');
+
+        document.getElementById('breadcrumb-back-btn').style.display = 'none';
+        breadcrumbBar.style.display = 'flex';
+        
+        const titleEl = document.querySelector('.timer-title');
+        const iconEl = document.querySelector('.timer-icon-box .material-symbols-outlined');
+        const altContainer = document.querySelector('.timer-alternatives');
+
+        if (timerType === 'restart') {
+            breadcrumbPath.textContent = 'Schedule Restart';
+            titleEl.textContent = 'Schedule Restart';
+            iconEl.textContent = 'restart_alt';
+            
+            altContainer.innerHTML = `
+                <button class="timer-alt-btn" onclick="executeSystemCommand('rundll32.exe powrprof.dll,SetSuspendState 0,1,0')">
+                    <span class="material-symbols-outlined">bedtime</span>
+                    Sleep instead
+                </button>
+                <button class="timer-alt-btn" onclick="executeSystemCommand('shutdown /s /t 0')">
+                    <span class="material-symbols-outlined">power_settings_new</span>
+                    Shut Down
+                </button>
+            `;
+        } else {
+            breadcrumbPath.textContent = 'Schedule Shutdown';
+            titleEl.textContent = 'Schedule Shutdown';
+            iconEl.textContent = 'power_settings_new';
+
+            altContainer.innerHTML = `
+                <button class="timer-alt-btn" onclick="executeSystemCommand('rundll32.exe powrprof.dll,SetSuspendState 0,1,0')">
+                    <span class="material-symbols-outlined">bedtime</span>
+                    Sleep instead
+                </button>
+                <button class="timer-alt-btn" onclick="executeSystemCommand('shutdown /r /t 0')">
+                    <span class="material-symbols-outlined">restart_alt</span>
+                    Restart
+                </button>
+            `;
+        }
+
+        // Show panel
+        document.getElementById('timer-panel').style.display = 'flex';
+        setTimerPreset(2); // default 1h
+        triggerResize();
+    }
+
+    function hideTimerPanel() {
+        isShowingTimer = false;
+        document.getElementById('timer-panel').style.display = 'none';
+        document.getElementById('breadcrumb-back-btn').style.display = 'flex';
+        breadcrumbBar.style.display = 'none';
+
+        // Restore normal search results
+        const query = searchInput.value;
+        if (query) {
+            window.ipc.postMessage(JSON.stringify({ type: 'search', query: query }));
+        } else {
+            rawResults = [];
+            renderResults();
+        }
+        triggerResize();
+    }
+
+    function setTimerPreset(index) {
+        timerSliderIndex = index;
+        document.getElementById('timer-slider').value = index;
+        updateTimerUI(index);
+    }
+
+    function onTimerSliderInput(val) {
+        timerSliderIndex = parseInt(val);
+        updateTimerUI(timerSliderIndex);
+    }
+
+    function updateTimerUI(index) {
+        const preset = TIMER_PRESETS[index];
+        document.getElementById('timer-value-display').textContent = preset.label;
+
+        // Calculate custom slider progress percentages
+        const pct = (index / 3) * 100;
+        document.getElementById('timer-slider-fill').style.width = pct + '%';
+        document.getElementById('timer-slider-thumb').style.left = `calc(${pct}% - 9px)`;
+
+        // Highlight labels
+        const labels = document.querySelectorAll('.timer-slider-label');
+        labels.forEach((lbl, i) => {
+            if (i === index) {
+                lbl.classList.add('active');
+            } else {
+                lbl.classList.remove('active');
+            }
+        });
+
+        // Highlight chips
+        const chips = document.querySelectorAll('.timer-chip');
+        chips.forEach((chip, i) => {
+            if (i === index) {
+                chip.classList.add('active');
+            } else {
+                chip.classList.remove('active');
+            }
+        });
+    }
+
+    function executeTimerAction() {
+        const seconds = TIMER_PRESETS[timerSliderIndex].seconds;
+        const cmd = timerType === 'restart' ? `shutdown /r /t ${seconds}` : `shutdown /s /t ${seconds}`;
+        window.ipc.postMessage(JSON.stringify({ type: 'system_command', command: cmd }));
+        hideLauncher();
+    }
+
+    function executeSystemCommand(command) {
+        window.ipc.postMessage(JSON.stringify({ type: 'system_command', command: command }));
+        hideLauncher();
+    }
+
+    // ===== Trigger Resize (immediate, no debounce) =====
     let resizeTimeout = null;
     function triggerResize() {
         clearTimeout(resizeTimeout);
         resizeTimeout = setTimeout(() => {
             window.ipc.postMessage(JSON.stringify({ type: 'resize', height: launcher.offsetHeight }));
-        }, 50);
+        }, 16); // ~1 frame delay for layout to settle
     }
 
     // ===== Event Listeners =====
@@ -933,11 +1835,54 @@
         }
     });
 
-    // Input handler: 10ms debounced search
+    // Input handler: 10ms debounced search with bang detection
     searchInput.addEventListener('input', (e) => {
         const query = e.target.value;
+
+        // Exit folder browsing, context actions, or timer mode when user starts typing
+        if (isBrowsingFolder) {
+            isBrowsingFolder = false;
+            currentBrowsePath = null;
+            browseHistory = [];
+            breadcrumbBar.style.display = 'none';
+        }
+        if (isShowingActions) {
+            isShowingActions = false;
+            actionTarget = null;
+            actionItems = [];
+            document.getElementById('breadcrumb-back-btn').style.display = 'flex';
+            breadcrumbBar.style.display = 'none';
+        }
+        if (isShowingTimer) {
+            isShowingTimer = false;
+            document.getElementById('timer-panel').style.display = 'none';
+            document.getElementById('breadcrumb-back-btn').style.display = 'flex';
+            breadcrumbBar.style.display = 'none';
+        }
+
         clearTimeout(searchTimeout);
         searchTimeout = setTimeout(() => {
+            // Bang search: !b <query> opens web search
+            if (query.startsWith('!b ') && query.length > 3) {
+                // Show a hint result for web search
+                rawResults = [{
+                    metadata: {
+                        name: 'Search the web: ' + query.substring(3),
+                        extension: '',
+                        parent_folder: 'google.com',
+                        full_path: '__web_search__',
+                        modified_date: 0,
+                        size: 0,
+                        file_type: 'WebSearch'
+                    },
+                    score: 1.0,
+                    match_type: 'BangSearch',
+                    icon_base64: null
+                }];
+                lastQuery = '';
+                renderResults();
+                return;
+            }
             window.ipc.postMessage(JSON.stringify({ type: 'search', query: query }));
         }, 10);
     });
@@ -947,22 +1892,100 @@
         const rows = resultsList.querySelectorAll('.result-row:not(.row-exit)');
         const count = rows.length;
 
+        if (isShowingTimer) {
+            if (e.key === 'ArrowRight') {
+                e.preventDefault();
+                setTimerPreset(Math.min(timerSliderIndex + 1, 3));
+            } else if (e.key === 'ArrowLeft') {
+                e.preventDefault();
+                setTimerPreset(Math.max(timerSliderIndex - 1, 0));
+            } else if (e.key === 'Backspace' && searchInput.value === '') {
+                e.preventDefault();
+                hideTimerPanel();
+            } else if (e.key === 'Enter') {
+                e.preventDefault();
+                executeTimerAction();
+            } else if (e.key === 'Escape') {
+                e.preventDefault();
+                hideTimerPanel();
+            }
+            return;
+        }
+
         if (e.key === 'ArrowDown') {
             e.preventDefault();
-            if (count > 0) {
-                setSelectedIndex(Math.min(selectedIndex + 1, count - 1));
-            }
+            if (count > 0) setSelectedIndex(Math.min(selectedIndex + 1, count - 1));
         } else if (e.key === 'ArrowUp') {
             e.preventDefault();
-            if (count > 0) {
-                setSelectedIndex(Math.max(selectedIndex - 1, 0));
+            if (count > 0) setSelectedIndex(Math.max(selectedIndex - 1, 0));
+        } else if (e.key === 'ArrowRight') {
+            if (isShowingActions) {
+                e.preventDefault();
+                return;
+            }
+            const activeRow = rows[selectedIndex];
+            if (activeRow) {
+                const fileType = activeRow.getAttribute('data-file-type');
+                if (fileType === 'folder' || fileType === 'directory') {
+                    e.preventDefault();
+                    const path = activeRow.getAttribute('data-path');
+                    browseFolderAt(path);
+                } else {
+                    e.preventDefault();
+                    const filtered = getFilteredResults();
+                    const result = filtered[selectedIndex];
+                    if (result) {
+                        if (result.match_type === 'SystemCommand' && result._hasTimer) {
+                            showTimerPanel(result.metadata.name === 'Restart' ? 'restart' : 'shutdown');
+                        } else {
+                            showContextActions(result);
+                        }
+                    }
+                }
+            }
+        } else if (e.key === 'ArrowLeft' || (e.key === 'Backspace' && searchInput.value === '')) {
+            if (isShowingActions) {
+                e.preventDefault();
+                exitContextActions();
+            } else if (isBrowsingFolder) {
+                e.preventDefault();
+                exitFolderBrowse();
             }
         } else if (e.key === 'Enter') {
             e.preventDefault();
+            
+            const query = searchInput.value;
+            if (query.startsWith('!b ') && query.length > 3) {
+                searchWeb(query.substring(3));
+                return;
+            }
+
+            // Execute context actions if active
+            if (isShowingActions) {
+                if (selectedIndex >= 0 && selectedIndex < actionItems.length) {
+                    actionItems[selectedIndex].execute();
+                }
+                return;
+            }
+
+            // Execute system command directly if selected
+            const filtered = getFilteredResults();
+            const result = filtered[selectedIndex];
+            if (result && result.match_type === 'SystemCommand') {
+                executeSystemCommand(result.metadata.full_path);
+                return;
+            }
+
             executeSelected();
         } else if (e.key === 'Escape') {
             e.preventDefault();
-            hideLauncher();
+            if (isShowingActions) {
+                exitContextActions();
+            } else if (isBrowsingFolder) {
+                exitFolderBrowse();
+            } else {
+                hideLauncher();
+            }
         }
     });
 </script>

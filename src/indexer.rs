@@ -103,15 +103,6 @@ impl Indexer {
 
                 let is_dir = metadata.is_dir();
                 
-                let name = file_path
-                    .file_name()
-                    .map(|n| n.to_string_lossy().to_string())
-                    .unwrap_or_default();
-
-                if name.is_empty() {
-                    continue;
-                }
-
                 let extension = if is_dir {
                     String::new()
                 } else {
@@ -120,6 +111,19 @@ impl Indexer {
                         .map(|ext| ext.to_string_lossy().to_string().to_lowercase())
                         .unwrap_or_default()
                 };
+
+                let mut name = file_path
+                    .file_name()
+                    .map(|n| n.to_string_lossy().to_string())
+                    .unwrap_or_default();
+
+                if name.is_empty() {
+                    continue;
+                }
+
+                if extension == "lnk" && name.to_lowercase().ends_with(".lnk") {
+                    name = name[..name.len() - 4].to_string();
+                }
 
                 let parent_folder = file_path
                     .parent()
@@ -212,8 +216,80 @@ impl Indexer {
             }
         }
 
+        // Discover and index UWP / Microsoft Store apps
+        match Self::discover_uwp_apps() {
+            Ok(uwp_apps) => {
+                let uwp_count = uwp_apps.len();
+                if !uwp_apps.is_empty() {
+                    if let Err(e) = self.storage.save_files(&uwp_apps) {
+                        warn!("Failed to save UWP apps to DB: {:?}", e);
+                    } else {
+                        total_indexed += uwp_count;
+                        info!("Discovered and indexed {} UWP/Store apps.", uwp_count);
+                    }
+                }
+            }
+            Err(e) => {
+                warn!("UWP app discovery failed: {}", e);
+            }
+        }
+
         info!("Indexing complete. Total items indexed: {}", total_indexed);
         Ok(total_indexed)
+    }
+
+    /// Discover UWP / Microsoft Store apps via PowerShell Get-StartApps
+    fn discover_uwp_apps() -> Result<Vec<FileMetadata>, String> {
+        #[cfg(target_os = "windows")]
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+
+        let output = std::process::Command::new("powershell")
+            .args(["-NoProfile", "-Command", "Get-StartApps | ConvertTo-Json"])
+            .creation_flags(CREATE_NO_WINDOW)
+            .output()
+            .map_err(|e| format!("Failed to run PowerShell: {}", e))?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(format!("PowerShell exited with error: {}", stderr));
+        }
+
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let json_val: serde_json::Value = serde_json::from_str(&stdout)
+            .map_err(|e| format!("Failed to parse Get-StartApps JSON: {}", e))?;
+
+        let apps_array = match json_val {
+            serde_json::Value::Array(arr) => arr,
+            single @ serde_json::Value::Object(_) => vec![single],
+            _ => return Ok(Vec::new()),
+        };
+
+        let mut results = Vec::new();
+        for app in apps_array {
+            let name = app.get("Name").and_then(|v| v.as_str()).unwrap_or("").to_string();
+            let app_id = app.get("AppID").and_then(|v| v.as_str()).unwrap_or("").to_string();
+
+            if name.is_empty() || app_id.is_empty() {
+                continue;
+            }
+
+            let full_path = format!("shell:AppsFolder\\{}", app_id);
+
+            results.push(FileMetadata {
+                id: None,
+                name,
+                extension: String::new(),
+                parent_folder: "UWP Apps".to_string(),
+                full_path,
+                modified_date: 0,
+                size: 0,
+                file_type: FileType::Application,
+            });
+        }
+
+        info!("PowerShell Get-StartApps returned {} apps.", results.len());
+        Ok(results)
     }
 
     /// Exclude typical noisy development or hidden system paths
