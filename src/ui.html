@@ -749,8 +749,8 @@
     <!-- Search Bar Area -->
     <div class="search-area">
         <div class="search-input-wrapper">
-            <span class="material-symbols-outlined search-icon">search</span>
-            <input id="search-input" type="text" placeholder="Type here to search" autocomplete="off" spellcheck="false" />
+            <span class="material-symbols-outlined search-icon" aria-hidden="true">search</span>
+            <input id="search-input" type="text" placeholder="Type here to search" aria-label="Search query" autocomplete="off" spellcheck="false" />
         </div>
         <div class="chips-row">
             <button class="chip active" data-tab="all" onclick="setTab('all')">All</button>
@@ -763,7 +763,7 @@
     <!-- Breadcrumb Bar (Folder Navigation) -->
     <div id="breadcrumb-bar">
         <button class="breadcrumb-back" id="breadcrumb-back-btn" onclick="exitFolderBrowse()">
-            <span class="material-symbols-outlined">arrow_back</span>
+            <span class="material-symbols-outlined" aria-hidden="true">arrow_back</span>
             Back
         </button>
         <span class="breadcrumb-path" id="breadcrumb-path"></span>
@@ -775,7 +775,7 @@
             <div class="timer-header-top">
                 <div class="timer-header-left">
                     <div class="timer-icon-box">
-                        <span class="material-symbols-outlined">power_settings_new</span>
+                        <span class="material-symbols-outlined" aria-hidden="true">power_settings_new</span>
                     </div>
                     <div>
                         <div class="timer-title">Schedule Shutdown</div>
@@ -810,11 +810,11 @@
         </div>
         <div class="timer-alternatives">
             <button class="timer-alt-btn" onclick="executeSystemCommand('rundll32.exe powrprof.dll,SetSuspendState 0,1,0')">
-                <span class="material-symbols-outlined">bedtime</span>
+                <span class="material-symbols-outlined" aria-hidden="true">bedtime</span>
                 Sleep instead
             </button>
             <button class="timer-alt-btn" onclick="executeSystemCommand('shutdown /r /t 0')">
-                <span class="material-symbols-outlined">restart_alt</span>
+                <span class="material-symbols-outlined" aria-hidden="true">restart_alt</span>
                 Restart
             </button>
         </div>
@@ -832,7 +832,7 @@
         <div id="debug-stats"></div>
         <button class="footer-btn" onclick="searchWeb()">
             Search the web
-            <span class="material-symbols-outlined">open_in_new</span>
+            <span class="material-symbols-outlined" aria-hidden="true">open_in_new</span>
         </button>
     </div>
 </div>
@@ -1394,13 +1394,13 @@
                     let iconHtml = '';
                     let iconBoxStyle = '';
                     if (result._systemIcon) {
-                        iconHtml = `<span class="material-symbols-outlined" style="color: white; font-size: 24px; font-variation-settings: 'FILL' 1;">${result._systemIcon}</span>`;
+                        iconHtml = `<span class="material-symbols-outlined" aria-hidden="true" style="color: white; font-size: 24px; font-variation-settings: 'FILL' 1;">${result._systemIcon}</span>`;
                         iconBoxStyle = 'background: var(--primary); border-color: var(--primary);';
                     } else if (result.icon_base64 && result.icon_base64.length > 0) {
                         iconHtml = `<img src="data:image/png;base64,${result.icon_base64}" style="width: 24px; height: 24px; object-fit: contain;" />`;
                     } else {
                         const iconInfo = getIconForFile(result.metadata);
-                        iconHtml = `<span class="material-symbols-outlined" style="color: ${iconInfo.color}; font-size: 24px; font-variation-settings: 'FILL' 1;">${iconInfo.icon}</span>`;
+                        iconHtml = `<span class="material-symbols-outlined" aria-hidden="true" style="color: ${iconInfo.color}; font-size: 24px; font-variation-settings: 'FILL' 1;">${iconInfo.icon}</span>`;
                     }
 
                     row.innerHTML = `
@@ -1413,7 +1413,7 @@
                         </div>
                         <div class="result-right">
                             <span class="result-type">${displayType}</span>
-                            ${displayType === 'ACTION OPTION' ? '' : '<span class="result-arrow material-symbols-outlined">arrow_forward_ios</span>'}
+                            ${displayType === 'ACTION OPTION' ? '' : '<span class="result-arrow material-symbols-outlined" aria-hidden="true">arrow_forward_ios</span>'}
                         </div>
                     `;
                 }
@@ -1712,11 +1712,11 @@
             
             altContainer.innerHTML = `
                 <button class="timer-alt-btn" onclick="executeSystemCommand('rundll32.exe powrprof.dll,SetSuspendState 0,1,0')">
-                    <span class="material-symbols-outlined">bedtime</span>
+                    <span class="material-symbols-outlined" aria-hidden="true">bedtime</span>
                     Sleep instead
                 </button>
                 <button class="timer-alt-btn" onclick="executeSystemCommand('shutdown /s /t 0')">
-                    <span class="material-symbols-outlined">power_settings_new</span>
+                    <span class="material-symbols-outlined" aria-hidden="true">power_settings_new</span>
                     Shut Down
                 </button>
             `;
@@ -1727,11 +1727,11 @@
 
             altContainer.innerHTML = `
                 <button class="timer-alt-btn" onclick="executeSystemCommand('rundll32.exe powrprof.dll,SetSuspendState 0,1,0')">
-                    <span class="material-symbols-outlined">bedtime</span>
+                    <span class="material-symbols-outlined" aria-hidden="true">bedtime</span>
                     Sleep instead
                 </button>
                 <button class="timer-alt-btn" onclick="executeSystemCommand('shutdown /r /t 0')">
-                    <span class="material-symbols-outlined">restart_alt</span>
+                    <span class="material-symbols-outlined" aria-hidden="true">restart_alt</span>
                     Restart
                 </button>
             `;
