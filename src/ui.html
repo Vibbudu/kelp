@@ -98,8 +98,8 @@
         /* ===== MICA SURFACE ===== */
         .mica-surface {
             background-color: var(--bg-surface);
-            backdrop-filter: blur(25px);
-            -webkit-backdrop-filter: blur(25px);
+            backdrop-filter: blur(25px) saturate(180%);
+            -webkit-backdrop-filter: blur(25px) saturate(180%);
             border: 1px solid var(--border-color);
             border-top: 1px solid var(--border-top);
             border-left: 1px solid var(--border-top);
@@ -122,20 +122,20 @@
         /* Entrance / Exit scale + fade animations */
         #launcher.launcher-hidden {
             opacity: 0;
-            transform: scale(0.95);
+            transform: scale(0.98);
             pointer-events: none;
         }
 
         #launcher.launcher-visible {
             opacity: 1;
             transform: scale(1.0);
-            transition: opacity 150ms ease-out, transform 150ms ease-out;
+            transition: opacity 150ms cubic-bezier(0.2, 0.8, 0.2, 1), transform 150ms cubic-bezier(0.2, 0.8, 0.2, 1);
             transform-origin: top center;
         }
 
         #launcher.launcher-exit {
             opacity: 0;
-            transition: opacity 120ms ease-in;
+            transition: opacity 120ms cubic-bezier(0.2, 0.8, 0.2, 1);
             pointer-events: none;
         }
 
@@ -185,6 +185,8 @@
             line-height: 28px;
             font-weight: 400;
             color: var(--text-primary);
+            font-optical-sizing: auto;
+            letter-spacing: -0.02em;
         }
 
         #search-input::placeholder {
@@ -228,6 +230,11 @@
             color: var(--text-primary);
         }
 
+        .chip:active {
+            transform: scale(0.97);
+            transition: transform 100ms ease-out;
+        }
+
         /* ===== RESULTS AREA ===== */
         #results-container {
             display: flex;
@@ -268,7 +275,7 @@
             top: 0px;
             background: var(--row-selected);
             border-radius: var(--radius);
-            transition: top 80ms cubic-bezier(0.2, 0.8, 0.2, 1), height 80ms cubic-bezier(0.2, 0.8, 0.2, 1);
+            transition: top 150ms cubic-bezier(0.2, 0.8, 0.2, 1), height 150ms cubic-bezier(0.2, 0.8, 0.2, 1);
             pointer-events: none;
             z-index: 0;
         }
@@ -309,6 +316,11 @@
             transition: opacity 80ms ease-out, transform 80ms ease-out;
         }
 
+        .result-row:active {
+            transform: scale(0.97);
+            transition: transform 100ms ease-out;
+        }
+
         /* ===== BREADCRUMB BAR (Folder Navigation) ===== */
         #breadcrumb-bar {
             display: none;
@@ -343,6 +355,11 @@
 
         .breadcrumb-back:hover {
             background: rgba(0, 120, 212, 0.08);
+        }
+
+        .breadcrumb-back:active {
+            transform: scale(0.97);
+            transition: transform 100ms ease-out;
         }
 
         .breadcrumb-back .material-symbols-outlined {
@@ -394,6 +411,8 @@
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
+            font-optical-sizing: auto;
+            letter-spacing: -0.01em;
         }
 
         /* Highlight matching characters color */
@@ -561,7 +580,8 @@
         }
 
         .timer-schedule-btn:active {
-            transform: scale(0.98);
+            transform: scale(0.97);
+            transition: transform 100ms ease-out;
         }
 
         /* Quick Chips */
@@ -592,6 +612,11 @@
             background: rgba(255,255,255,0.3);
             border-color: rgba(255,255,255,0.2);
             font-weight: 700;
+        }
+
+        .timer-chip:active {
+            transform: scale(0.97);
+            transition: transform 100ms ease-out;
         }
 
         /* Slider Container */
@@ -698,6 +723,11 @@
             background: rgba(142, 149, 160, 0.15);
         }
 
+        .timer-alt-btn:active {
+            transform: scale(0.97);
+            transition: transform 100ms ease-out;
+        }
+
         .timer-alt-btn .material-symbols-outlined {
             color: var(--text-secondary);
             font-size: 20px;
@@ -738,8 +768,42 @@
             background: rgba(0, 120, 212, 0.08);
         }
 
+        .footer-btn:active {
+            transform: scale(0.97);
+            transition: transform 100ms ease-out;
+        }
+
         .footer-btn .material-symbols-outlined {
             font-size: 16px;
+        }
+
+        /* ===== REDUCED MOTION ACCESSIBILITY ===== */
+        @media (prefers-reduced-motion: reduce) {
+            *,
+            *::before,
+            *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+                scroll-behavior: auto !important;
+            }
+            #launcher.launcher-hidden,
+            #launcher.launcher-exit {
+                opacity: 0;
+                transform: none !important;
+                transition: opacity 150ms ease !important;
+            }
+            #launcher.launcher-visible {
+                opacity: 1;
+                transform: none !important;
+                transition: opacity 150ms ease !important;
+            }
+            .result-row {
+                transition: opacity 150ms ease !important;
+            }
+            #selection-indicator {
+                transition: top 50ms ease, height 50ms ease !important;
+            }
         }
     </style>
 </head>
