@@ -777,6 +777,137 @@
             font-size: 16px;
         }
 
+        /* ===== CONFIRMATION PANEL (POWER FAILSAFE) ===== */
+        #confirm-panel {
+            display: none;
+            flex-direction: column;
+            padding: 16px 20px 20px 20px;
+            gap: 16px;
+            animation: fadeIn 150ms ease-out forwards;
+        }
+
+        .confirm-card {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: var(--radius-lg);
+            padding: 18px 20px;
+            backdrop-filter: blur(12px);
+        }
+
+        .confirm-icon-box {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            background: rgba(229, 57, 53, 0.15);
+            border: 1px solid rgba(229, 57, 53, 0.3);
+            transition: all 200ms ease;
+        }
+
+        .confirm-icon-box .material-symbols-outlined {
+            font-size: 28px;
+            color: #EF5350;
+            font-variation-settings: 'FILL' 1;
+        }
+
+        .confirm-content {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            flex: 1;
+        }
+
+        .confirm-title {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--text-primary);
+            letter-spacing: -0.01em;
+        }
+
+        .confirm-subtitle {
+            font-size: 13px;
+            color: var(--text-secondary);
+            line-height: 1.4;
+        }
+
+        .confirm-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+
+        .confirm-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 9px 18px;
+            border-radius: 8px;
+            font-family: 'Inter', sans-serif;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 120ms ease;
+            outline: none;
+        }
+
+        .confirm-btn:active {
+            transform: scale(0.97);
+        }
+
+        .confirm-cancel-btn {
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--text-primary);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+        }
+
+        .confirm-cancel-btn:hover {
+            background: rgba(255, 255, 255, 0.14);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .confirm-cancel-btn.btn-focused {
+            border-color: rgba(255, 255, 255, 0.4);
+            box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.2);
+        }
+
+        .confirm-execute-btn {
+            background: #E53935;
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            font-weight: 600;
+            box-shadow: 0 2px 8px rgba(229, 57, 53, 0.35);
+        }
+
+        .confirm-execute-btn:hover {
+            background: #D32F2F;
+            box-shadow: 0 4px 12px rgba(229, 57, 53, 0.5);
+        }
+
+        .confirm-execute-btn.btn-focused {
+            box-shadow: 0 0 0 3px rgba(229, 57, 53, 0.4), 0 4px 12px rgba(229, 57, 53, 0.5);
+        }
+
+        .confirm-execute-btn .material-symbols-outlined {
+            font-size: 18px;
+        }
+
+        .confirm-key-hint {
+            font-size: 11px;
+            opacity: 0.7;
+            background: rgba(0, 0, 0, 0.2);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: 600;
+            margin-left: 2px;
+        }
+
         /* ===== REDUCED MOTION ACCESSIBILITY ===== */
         @media (prefers-reduced-motion: reduce) {
             *,
@@ -880,6 +1011,30 @@
             <button class="timer-alt-btn" onclick="executeSystemCommand('shutdown /r /t 0')">
                 <span class="material-symbols-outlined" aria-hidden="true">restart_alt</span>
                 Restart
+            </button>
+        </div>
+    </div>
+
+    <!-- Power Action Confirmation Panel (Failsafe) -->
+    <div id="confirm-panel">
+        <div class="confirm-card">
+            <div class="confirm-icon-box" id="confirm-icon-box">
+                <span class="material-symbols-outlined" id="confirm-icon" aria-hidden="true">power_settings_new</span>
+            </div>
+            <div class="confirm-content">
+                <div class="confirm-title" id="confirm-title">Are you sure you want to shut down?</div>
+                <div class="confirm-subtitle" id="confirm-subtitle">All apps will close and your PC will turn off. Any unsaved work will be lost.</div>
+            </div>
+        </div>
+        <div class="confirm-actions">
+            <button class="confirm-btn confirm-cancel-btn" id="confirm-cancel-btn" onclick="cancelPowerConfirmation()">
+                Cancel
+                <span class="confirm-key-hint">Esc</span>
+            </button>
+            <button class="confirm-btn confirm-execute-btn" id="confirm-execute-btn" onclick="executeConfirmedPowerAction()">
+                <span class="material-symbols-outlined" id="confirm-btn-icon" aria-hidden="true">power_settings_new</span>
+                <span id="confirm-btn-label">Shut Down</span>
+                <span class="confirm-key-hint">↵</span>
             </button>
         </div>
     </div>
@@ -1242,12 +1397,15 @@
         isBrowsingFolder = false;
         isShowingActions = false;
         isShowingTimer = false;
+        isShowingConfirm = false;
+        pendingPowerAction = null;
         actionItems = [];
         actionTarget = null;
         browseHistory = [];
         currentBrowsePath = null;
         breadcrumbBar.style.display = 'none';
         document.getElementById('timer-panel').style.display = 'none';
+        document.getElementById('confirm-panel').style.display = 'none';
         renderResults();
         updateChipStyles();
         setTimeout(() => {
@@ -1483,6 +1641,13 @@
                 }
 
                 row.onclick = function () {
+                    const filtered = getFilteredResults();
+                    const result = filtered[index];
+                    if (result && result.match_type === 'SystemCommand') {
+                        setSelectedIndex(index);
+                        executeSystemCommand(result.metadata.full_path);
+                        return;
+                    }
                     setSelectedIndex(index);
                     executeSelected();
                 };
@@ -1538,7 +1703,14 @@
             const activeRow = rows[selectedIndex];
             if (activeRow) {
                 const path = activeRow.getAttribute('data-path');
+                const fileType = (activeRow.getAttribute('data-file-type') || '').toLowerCase();
                 const query = searchInput.value;
+
+                if (fileType === 'systemcommand') {
+                    executeSystemCommand(path);
+                    return;
+                }
+
                 window.ipc.postMessage(JSON.stringify({ type: 'select', query: query, path: path }));
                 hideLauncher();
             }
@@ -1577,6 +1749,10 @@
     }
 
     function exitFolderBrowse() {
+        if (isShowingConfirm) {
+            cancelPowerConfirmation();
+            return;
+        }
         if (browseHistory.length > 0) {
             const prev = browseHistory.pop();
             isBrowsingFolder = prev.wasBrowsing;
@@ -1865,16 +2041,191 @@
         });
     }
 
-    function executeTimerAction() {
-        const seconds = TIMER_PRESETS[timerSliderIndex].seconds;
-        const cmd = timerType === 'restart' ? `shutdown /r /t ${seconds}` : `shutdown /s /t ${seconds}`;
+    // ===== Power Options Confirmation Failsafe =====
+    let isShowingConfirm = false;
+    let pendingPowerAction = null;
+    let confirmFocusedButton = 'confirm'; // 'confirm' or 'cancel'
+
+    function promptPowerConfirmation(actionName, command, icon, customSubtitle) {
+        pendingPowerAction = {
+            name: actionName,
+            command: command,
+            icon: icon || 'power_settings_new',
+            subtitle: customSubtitle || null
+        };
+
+        isShowingConfirm = true;
+        isShowingTimer = false;
+        isShowingActions = false;
+        isBrowsingFolder = false;
+
+        // Collapse results list and footer
+        resultsContainer.classList.remove('has-results');
+        footer.classList.remove('show-footer');
+        document.getElementById('timer-panel').style.display = 'none';
+
+        // Update Breadcrumb bar
+        document.getElementById('breadcrumb-back-btn').style.display = 'flex';
+        breadcrumbBar.style.display = 'flex';
+        breadcrumbPath.textContent = `Confirmation: ${actionName}`;
+
+        // Configure prompt details based on action
+        const nameLower = actionName.toLowerCase();
+        let title = `Are you sure you want to ${nameLower}?`;
+        let subtitle = 'Any unsaved work will be lost.';
+        let btnLabel = actionName;
+        let btnColor = '#E53935';
+        let btnHoverColor = '#D32F2F';
+        let iconColor = '#EF5350';
+        let iconBg = 'rgba(229, 57, 53, 0.15)';
+        let iconBorder = 'rgba(229, 57, 53, 0.3)';
+
+        if (nameLower.includes('restart') || nameLower.includes('reboot')) {
+            title = 'Are you sure you want to restart?';
+            subtitle = 'Your computer will restart immediately. Any unsaved work will be lost.';
+            btnColor = '#FB8C00';
+            btnHoverColor = '#F57C00';
+            iconColor = '#FFA726';
+            iconBg = 'rgba(251, 140, 0, 0.15)';
+            iconBorder = 'rgba(251, 140, 0, 0.3)';
+        } else if (nameLower.includes('sleep') || nameLower.includes('suspend')) {
+            title = 'Put your computer to sleep?';
+            subtitle = 'Your session will stay saved in memory so you can quickly resume.';
+            btnColor = '#1E88E5';
+            btnHoverColor = '#1976D2';
+            iconColor = '#42A5F5';
+            iconBg = 'rgba(30, 136, 229, 0.15)';
+            iconBorder = 'rgba(30, 136, 229, 0.3)';
+        } else if (nameLower.includes('sign out') || nameLower.includes('log off') || nameLower.includes('logout')) {
+            title = 'Are you sure you want to sign out?';
+            subtitle = 'All open applications and windows will be closed.';
+            btnColor = '#8E24AA';
+            btnHoverColor = '#7B1FA2';
+            iconColor = '#AB47BC';
+            iconBg = 'rgba(142, 36, 170, 0.15)';
+            iconBorder = 'rgba(142, 36, 170, 0.3)';
+        } else if (nameLower.includes('lock')) {
+            title = 'Lock your screen?';
+            subtitle = 'You will need your password or PIN to unlock your computer.';
+            btnColor = '#0078D4';
+            btnHoverColor = '#0063B1';
+            iconColor = '#60CDFF';
+            iconBg = 'rgba(0, 120, 212, 0.15)';
+            iconBorder = 'rgba(0, 120, 212, 0.3)';
+        } else if (nameLower.includes('schedule')) {
+            title = `${actionName}?`;
+            subtitle = customSubtitle || 'Your computer will execute this action automatically at the scheduled time.';
+            btnColor = '#0078D4';
+            btnHoverColor = '#0063B1';
+            iconColor = '#60CDFF';
+            iconBg = 'rgba(0, 120, 212, 0.15)';
+            iconBorder = 'rgba(0, 120, 212, 0.3)';
+            btnLabel = 'Confirm Schedule';
+        } else {
+            title = 'Are you sure you want to shut down?';
+            subtitle = 'All apps will close and your computer will turn off. Any unsaved work will be lost.';
+        }
+
+        if (customSubtitle) {
+            subtitle = customSubtitle;
+        }
+
+        document.getElementById('confirm-title').textContent = title;
+        document.getElementById('confirm-subtitle').textContent = subtitle;
+        document.getElementById('confirm-btn-label').textContent = btnLabel;
+
+        const iconEl = document.getElementById('confirm-icon');
+        iconEl.textContent = icon || 'power_settings_new';
+        iconEl.style.color = iconColor;
+
+        const btnIconEl = document.getElementById('confirm-btn-icon');
+        btnIconEl.textContent = icon || 'power_settings_new';
+
+        const iconBox = document.getElementById('confirm-icon-box');
+        iconBox.style.background = iconBg;
+        iconBox.style.borderColor = iconBorder;
+
+        const execBtn = document.getElementById('confirm-execute-btn');
+        execBtn.style.background = btnColor;
+        execBtn.style.borderColor = iconBorder;
+        execBtn.style.boxShadow = `0 2px 10px ${iconBg}`;
+
+        confirmFocusedButton = 'confirm';
+        updateConfirmFocusUI();
+
+        document.getElementById('confirm-panel').style.display = 'flex';
+        triggerResize();
+    }
+
+    function updateConfirmFocusUI() {
+        const cancelBtn = document.getElementById('confirm-cancel-btn');
+        const execBtn = document.getElementById('confirm-execute-btn');
+        if (confirmFocusedButton === 'cancel') {
+            cancelBtn.classList.add('btn-focused');
+            execBtn.classList.remove('btn-focused');
+        } else {
+            execBtn.classList.add('btn-focused');
+            cancelBtn.classList.remove('btn-focused');
+        }
+    }
+
+    function cancelPowerConfirmation() {
+        isShowingConfirm = false;
+        pendingPowerAction = null;
+        document.getElementById('confirm-panel').style.display = 'none';
+        document.getElementById('breadcrumb-back-btn').style.display = 'flex';
+        breadcrumbBar.style.display = 'none';
+
+        // Restore normal search results
+        const query = searchInput.value;
+        if (query) {
+            window.ipc.postMessage(JSON.stringify({ type: 'search', query: query }));
+        } else {
+            rawResults = [];
+            renderResults();
+        }
+        triggerResize();
+        searchInput.focus();
+    }
+
+    function executeConfirmedPowerAction() {
+        if (!pendingPowerAction || !pendingPowerAction.command) return;
+        const cmd = pendingPowerAction.command;
+        pendingPowerAction = null;
+        isShowingConfirm = false;
+        document.getElementById('confirm-panel').style.display = 'none';
         window.ipc.postMessage(JSON.stringify({ type: 'system_command', command: cmd }));
         hideLauncher();
     }
 
+    function executeTimerAction() {
+        const preset = TIMER_PRESETS[timerSliderIndex];
+        const seconds = preset.seconds;
+        const action = timerType === 'restart' ? 'Restart' : 'Shutdown';
+        const cmd = timerType === 'restart' ? `shutdown /r /t ${seconds}` : `shutdown /s /t ${seconds}`;
+        const icon = timerType === 'restart' ? 'restart_alt' : 'power_settings_new';
+        const sub = `Timer set for ${preset.label} (${action.toLowerCase()} in ${preset.label}).`;
+        promptPowerConfirmation(`Schedule ${action}`, cmd, icon, sub);
+    }
+
     function executeSystemCommand(command) {
-        window.ipc.postMessage(JSON.stringify({ type: 'system_command', command: command }));
-        hideLauncher();
+        // Match against known system commands for beautiful title & icon
+        const matched = SYSTEM_COMMANDS.find(c => c.command === command);
+        if (matched) {
+            promptPowerConfirmation(matched.name, matched.command, matched.icon);
+        } else if (command.includes('shutdown /r')) {
+            promptPowerConfirmation('Restart', command, 'restart_alt');
+        } else if (command.includes('shutdown /s')) {
+            promptPowerConfirmation('Shut Down', command, 'power_settings_new');
+        } else if (command.includes('SetSuspendState')) {
+            promptPowerConfirmation('Sleep', command, 'bedtime');
+        } else if (command.includes('shutdown /l')) {
+            promptPowerConfirmation('Sign Out', command, 'logout');
+        } else if (command.includes('LockWorkStation')) {
+            promptPowerConfirmation('Lock Screen', command, 'lock');
+        } else {
+            promptPowerConfirmation('System Action', command, 'power_settings_new');
+        }
     }
 
     // ===== Trigger Resize (immediate, no debounce) =====
@@ -1923,6 +2274,13 @@
             document.getElementById('breadcrumb-back-btn').style.display = 'flex';
             breadcrumbBar.style.display = 'none';
         }
+        if (isShowingConfirm) {
+            isShowingConfirm = false;
+            pendingPowerAction = null;
+            document.getElementById('confirm-panel').style.display = 'none';
+            document.getElementById('breadcrumb-back-btn').style.display = 'flex';
+            breadcrumbBar.style.display = 'none';
+        }
 
         clearTimeout(searchTimeout);
         searchTimeout = setTimeout(() => {
@@ -1955,6 +2313,25 @@
     searchInput.addEventListener('keydown', (e) => {
         const rows = resultsList.querySelectorAll('.result-row:not(.row-exit)');
         const count = rows.length;
+
+        if (isShowingConfirm) {
+            if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'Tab') {
+                e.preventDefault();
+                confirmFocusedButton = confirmFocusedButton === 'confirm' ? 'cancel' : 'confirm';
+                updateConfirmFocusUI();
+            } else if (e.key === 'Enter') {
+                e.preventDefault();
+                if (confirmFocusedButton === 'cancel') {
+                    cancelPowerConfirmation();
+                } else {
+                    executeConfirmedPowerAction();
+                }
+            } else if (e.key === 'Escape' || (e.key === 'Backspace' && searchInput.value === '')) {
+                e.preventDefault();
+                cancelPowerConfirmation();
+            }
+            return;
+        }
 
         if (isShowingTimer) {
             if (e.key === 'ArrowRight') {
