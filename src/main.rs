@@ -58,6 +58,16 @@ enum IpcMessage {
     Resize { height: f64 },
     #[serde(rename = "hide_window")]
     HideWindow,
+    #[serde(rename = "get_settings")]
+    GetSettings,
+    #[serde(rename = "save_settings")]
+    SaveSettings { config: Box<engine::config::AppConfig> },
+    #[serde(rename = "pick_folder")]
+    PickFolder,
+    #[serde(rename = "reindex_now")]
+    ReindexNow,
+    #[serde(rename = "clear_cache")]
+    ClearCache,
 }
 
 #[derive(Debug)]
@@ -76,6 +86,14 @@ enum UserEvent {
     SystemCommandRequest { command: String },
     ResizeRequest { height: f64 },
     HideWindow,
+    GetSettingsRequest,
+    SaveSettingsRequest { config: Box<engine::config::AppConfig> },
+    PickFolderRequest,
+    FolderPicked { path: Option<String> },
+    ReindexRequest,
+    ReindexCompleted { count: usize },
+    ClearCacheRequest,
+    ClearCacheCompleted,
     TrayIcon(tray_icon::TrayIconEvent),
     MenuEvent(tray_icon::menu::MenuEvent),
 }
@@ -236,7 +254,7 @@ async fn main() {
     let event_loop = EventLoopBuilder::<UserEvent>::with_user_event().build();
     let event_loop_proxy = event_loop.create_proxy();
 
-    // 8. Register Alt + Space Global Hotkey (with error recovery)
+    // 8. Register Dynamic Global Hotkey (with error recovery)
     let hotkey_manager = match GlobalHotKeyManager::new() {
         Ok(mgr) => mgr,
         Err(e) => {
@@ -244,14 +262,16 @@ async fn main() {
             panic!("Cannot create hotkey manager");
         }
     };
-    let alt_space_hotkey = HotKey::new(Some(Modifiers::ALT), Code::Space);
+    let mut current_config = engine.config.clone();
+    let mut current_hotkey = parse_hotkey_str(&current_config.hotkey)
+        .unwrap_or_else(|| HotKey::new(Some(Modifiers::ALT), Code::Space));
     let mut hotkey_registered = false;
-    if let Err(e) = hotkey_manager.register(alt_space_hotkey) {
-        warn!("Failed to register Alt+Space hotkey (may already be registered): {:?}", e);
+    if let Err(e) = hotkey_manager.register(current_hotkey) {
+        warn!("Failed to register initial hotkey {:?}: {:?}", current_hotkey, e);
     } else {
         hotkey_registered = true;
     }
-    let alt_space_id = alt_space_hotkey.id();
+    let mut current_hotkey_id = current_hotkey.id();
 
     // Run Startup Self-Validation and Search-Validation
     run_self_validation(&engine, hotkey_registered);
@@ -312,11 +332,14 @@ async fn main() {
     // 9. Initialize System Tray
     let tray_menu = Menu::new();
     let show_item = MenuItem::new("Show Kelp", true, None);
+    let settings_item = MenuItem::new("Settings...", true, None);
     let exit_item = MenuItem::new("Exit Kelp", true, None);
     let _ = tray_menu.append(&show_item);
+    let _ = tray_menu.append(&settings_item);
     let _ = tray_menu.append(&exit_item);
 
     let show_item_id = show_item.id().clone();
+    let settings_item_id = settings_item.id().clone();
     let exit_item_id = exit_item.id().clone();
 
     let tray_icon = match TrayIconBuilder::new()
@@ -345,6 +368,8 @@ async fn main() {
 
     // 10. Attach transparent Wry WebView hosting the embedded HTML client
     let html_content = include_str!("ui.html");
+    let webview_data_dir = engine::utilities::get_app_data_dir().join("webview_data");
+    let _ = std::fs::create_dir_all(&webview_data_dir);
 
     let webview = match WebViewBuilder::new(&window)
         .with_transparent(true)
@@ -367,6 +392,11 @@ async fn main() {
                             IpcMessage::SystemCommand { command } => UserEvent::SystemCommandRequest { command },
                             IpcMessage::Resize { height } => UserEvent::ResizeRequest { height },
                             IpcMessage::HideWindow => UserEvent::HideWindow,
+                            IpcMessage::GetSettings => UserEvent::GetSettingsRequest,
+                            IpcMessage::SaveSettings { config } => UserEvent::SaveSettingsRequest { config },
+                            IpcMessage::PickFolder => UserEvent::PickFolderRequest,
+                            IpcMessage::ReindexNow => UserEvent::ReindexRequest,
+                            IpcMessage::ClearCache => UserEvent::ClearCacheRequest,
                         };
                         let _ = proxy.send_event(event);
                     }
@@ -387,9 +417,10 @@ async fn main() {
     };
 
     // 10. Run Event Loop
-    let _keep_alive = (hotkey_manager, tray_icon);
+    let _tray_keep_alive = tray_icon;
+    let hotkey_mgr = hotkey_manager;
     event_loop.run(move |event, _, control_flow| {
-        let _ = &_keep_alive; // Force moving into closure to keep hotkey and tray registered forever
+        let _ = &_tray_keep_alive; // Force moving into closure to keep tray registered forever
         *control_flow = ControlFlow::Wait;
 
         match event {
@@ -431,7 +462,7 @@ async fn main() {
                         }
                     }
                     UserEvent::GlobalHotkey(hotkey_event) => {
-                        if hotkey_event.id == alt_space_id && hotkey_event.state == global_hotkey::HotKeyState::Pressed {
+                        if hotkey_event.id == current_hotkey_id && hotkey_event.state == global_hotkey::HotKeyState::Pressed {
                             let is_visible = window.is_visible();
                             info!("[Hotkey] Pressed. Current Kelp window visibility: {}", is_visible);
                             if is_visible {
@@ -545,8 +576,9 @@ async fn main() {
                         });
                     }
                     UserEvent::SearchWeb { query } => {
+                        let engine_name = current_config.default_web_engine.clone();
                         tokio::task::spawn_blocking(move || {
-                            launch_url(&query);
+                            launch_url_with_engine(&query, &engine_name);
                         });
                     }
                     UserEvent::BrowseFolderRequest { path } => {
@@ -783,10 +815,93 @@ async fn main() {
                                 force_set_foreground_window(&window);
                             }
                             let _ = webview.evaluate_script("showLauncher()");
+                        } else if menu_event.id == settings_item_id {
+                            unsafe {
+                                center_window_on_active_monitor(&window);
+                                force_set_foreground_window(&window);
+                            }
+                            let _ = webview.evaluate_script("showSettings()");
                         } else if menu_event.id == exit_item_id {
                             info!("Exiting Kelp via Tray Icon Exit command.");
                             *control_flow = ControlFlow::Exit;
                         }
+                    }
+                    UserEvent::GetSettingsRequest => {
+                        let config_json = serde_json::to_string(&current_config).unwrap_or_else(|_| "{}".to_string());
+                        let mem_bytes = engine::utilities::get_memory_usage();
+                        let mem_mb = mem_bytes as f64 / (1024.0 * 1024.0);
+                        let stats_json = serde_json::json!({
+                            "total_files": engine.total_files(),
+                            "memory_mb": mem_mb,
+                            "version": env!("CARGO_PKG_VERSION"),
+                            "autostart": is_autostart_enabled(),
+                            "hotkey": current_config.hotkey,
+                        }).to_string();
+                        let script = format!("if (window.setSettings) {{ window.setSettings({}, {}); }}", config_json, stats_json);
+                        let _ = webview.evaluate_script(&script);
+                    }
+                    UserEvent::SaveSettingsRequest { config } => {
+                        let new_cfg = *config;
+                        info!("[Settings] Updating configuration: {:?}", new_cfg);
+                        // 1. Check if hotkey changed
+                        if new_cfg.hotkey != current_config.hotkey {
+                            if let Some(new_hk) = parse_hotkey_str(&new_cfg.hotkey) {
+                                let _ = hotkey_mgr.unregister(current_hotkey);
+                                if let Err(e) = hotkey_mgr.register(new_hk) {
+                                    warn!("Failed to register new hotkey {:?}: {:?}", new_hk, e);
+                                } else {
+                                    info!("Successfully re-bound global hotkey to: {}", new_cfg.hotkey);
+                                    current_hotkey = new_hk;
+                                    current_hotkey_id = new_hk.id();
+                                }
+                            }
+                        }
+                        // 2. Check if autostart changed
+                        if new_cfg.launch_at_startup != current_config.launch_at_startup {
+                            let _ = set_autostart_registry(new_cfg.launch_at_startup);
+                        }
+                        // 3. Save to disk
+                        let cfg_path = engine::utilities::get_app_data_dir().join("config.json");
+                        let _ = new_cfg.save(&cfg_path);
+                        current_config = new_cfg;
+                        let _ = webview.evaluate_script("if (window.onSettingsSaved) { window.onSettingsSaved(true); }");
+                    }
+                    UserEvent::PickFolderRequest => {
+                        let proxy = event_loop_proxy.clone();
+                        tokio::task::spawn_blocking(move || {
+                            let picked = pick_folder_dialog();
+                            let _ = proxy.send_event(UserEvent::FolderPicked { path: picked });
+                        });
+                    }
+                    UserEvent::FolderPicked { path } => {
+                        let path_json = serde_json::to_string(&path).unwrap_or_else(|_| "null".to_string());
+                        let script = format!("if (window.onFolderPicked) {{ window.onFolderPicked({}); }}", path_json);
+                        let _ = webview.evaluate_script(&script);
+                    }
+                    UserEvent::ReindexRequest => {
+                        let proxy = event_loop_proxy.clone();
+                        let engine_c = engine.clone();
+                        let paths = current_config.search_paths.clone();
+                        tokio::task::spawn_blocking(move || {
+                            let count = engine_c.reindex_blocking(&paths).unwrap_or(0);
+                            let _ = proxy.send_event(UserEvent::ReindexCompleted { count });
+                        });
+                    }
+                    UserEvent::ReindexCompleted { count } => {
+                        let script = format!("if (window.onReindexComplete) {{ window.onReindexComplete({}); }}", count);
+                        let _ = webview.evaluate_script(&script);
+                    }
+                    UserEvent::ClearCacheRequest => {
+                        let proxy = event_loop_proxy.clone();
+                        let engine_c = engine.clone();
+                        tokio::task::spawn_blocking(move || {
+                            let _ = engine_c.clear_learning_cache();
+                            let _ = proxy.send_event(UserEvent::ClearCacheCompleted);
+                        });
+                    }
+                    UserEvent::ClearCacheCompleted => {
+                        let script = "if (window.onCacheCleared) { window.onCacheCleared(); }";
+                        let _ = webview.evaluate_script(script);
                     }
                 }
             }
@@ -831,13 +946,19 @@ fn launch_file(path: &str) {
     }
 }
 
-/// Encodes query spaces and triggers Google Search in the default browser
-fn launch_url(query: &str) {
+/// Encodes query spaces and triggers search in the configured default browser engine
+fn launch_url_with_engine(query: &str, engine_name: &str) {
     if query.trim().is_empty() {
         return;
     }
     let encoded = query.replace(' ', "+");
-    let url = format!("https://www.google.com/search?q={}", encoded);
+    let url = match engine_name.to_lowercase().as_str() {
+        "duckduckgo" | "ddg" => format!("https://duckduckgo.com/?q={}", encoded),
+        "bing" => format!("https://www.bing.com/search?q={}", encoded),
+        "brave" => format!("https://search.brave.com/search?q={}", encoded),
+        "yahoo" => format!("https://search.yahoo.com/search?p={}", encoded),
+        _ => format!("https://www.google.com/search?q={}", encoded),
+    };
     launch_file(&url);
 }
 
@@ -909,4 +1030,221 @@ fn run_self_validation(engine: &UIBridge, hotkey_registered: bool) {
     }
 
     info!("=================================================================");
+}
+
+/// Parses a human-readable hotkey string (e.g. "Alt+Space", "Ctrl+Space", "Win+K") into a HotKey
+fn parse_hotkey_str(s: &str) -> Option<HotKey> {
+    use global_hotkey::hotkey::{Code, Modifiers};
+    let parts: Vec<&str> = s.split('+').map(|p| p.trim()).collect();
+    if parts.is_empty() {
+        return None;
+    }
+    let mut mods = Modifiers::empty();
+    let mut code = None;
+
+    for part in parts {
+        let p_lower = part.to_lowercase();
+        match p_lower.as_str() {
+            "alt" | "opt" | "option" => mods |= Modifiers::ALT,
+            "ctrl" | "control" => mods |= Modifiers::CONTROL,
+            "shift" => mods |= Modifiers::SHIFT,
+            "win" | "cmd" | "super" | "meta" => mods |= Modifiers::SUPER,
+            "space" => code = Some(Code::Space),
+            "enter" | "return" => code = Some(Code::Enter),
+            "tab" => code = Some(Code::Tab),
+            "escape" | "esc" => code = Some(Code::Escape),
+            "backspace" => code = Some(Code::Backspace),
+            "f1" => code = Some(Code::F1),
+            "f2" => code = Some(Code::F2),
+            "f3" => code = Some(Code::F3),
+            "f4" => code = Some(Code::F4),
+            "f5" => code = Some(Code::F5),
+            "f6" => code = Some(Code::F6),
+            "f7" => code = Some(Code::F7),
+            "f8" => code = Some(Code::F8),
+            "f9" => code = Some(Code::F9),
+            "f10" => code = Some(Code::F10),
+            "f11" => code = Some(Code::F11),
+            "f12" => code = Some(Code::F12),
+            "a" => code = Some(Code::KeyA),
+            "b" => code = Some(Code::KeyB),
+            "c" => code = Some(Code::KeyC),
+            "d" => code = Some(Code::KeyD),
+            "e" => code = Some(Code::KeyE),
+            "f" => code = Some(Code::KeyF),
+            "g" => code = Some(Code::KeyG),
+            "h" => code = Some(Code::KeyH),
+            "i" => code = Some(Code::KeyI),
+            "j" => code = Some(Code::KeyJ),
+            "k" => code = Some(Code::KeyK),
+            "l" => code = Some(Code::KeyL),
+            "m" => code = Some(Code::KeyM),
+            "n" => code = Some(Code::KeyN),
+            "o" => code = Some(Code::KeyO),
+            "p" => code = Some(Code::KeyP),
+            "q" => code = Some(Code::KeyQ),
+            "r" => code = Some(Code::KeyR),
+            "s" => code = Some(Code::KeyS),
+            "t" => code = Some(Code::KeyT),
+            "u" => code = Some(Code::KeyU),
+            "v" => code = Some(Code::KeyV),
+            "w" => code = Some(Code::KeyW),
+            "x" => code = Some(Code::KeyX),
+            "y" => code = Some(Code::KeyY),
+            "z" => code = Some(Code::KeyZ),
+            "0" => code = Some(Code::Digit0),
+            "1" => code = Some(Code::Digit1),
+            "2" => code = Some(Code::Digit2),
+            "3" => code = Some(Code::Digit3),
+            "4" => code = Some(Code::Digit4),
+            "5" => code = Some(Code::Digit5),
+            "6" => code = Some(Code::Digit6),
+            "7" => code = Some(Code::Digit7),
+            "8" => code = Some(Code::Digit8),
+            "9" => code = Some(Code::Digit9),
+            _ => {}
+        }
+    }
+
+    let c = match code {
+        Some(c) => c,
+        None => return None,
+    };
+
+    let is_f_key = matches!(
+        c,
+        Code::F1
+            | Code::F2
+            | Code::F3
+            | Code::F4
+            | Code::F5
+            | Code::F6
+            | Code::F7
+            | Code::F8
+            | Code::F9
+            | Code::F10
+            | Code::F11
+            | Code::F12
+    );
+
+    // Enforce safety: non-F keys MUST have at least one modifier key
+    if !is_f_key && mods.is_empty() {
+        warn!("Invalid global hotkey '{}': Global shortcuts must contain at least one modifier (Alt, Ctrl, Shift, Win)", s);
+        return None;
+    }
+
+    Some(HotKey::new(if mods.is_empty() { None } else { Some(mods) }, c))
+}
+
+#[cfg(target_os = "windows")]
+fn pick_folder_dialog() -> Option<String> {
+    use windows::Win32::UI::Shell::{IFileOpenDialog, FileOpenDialog, FOS_PICKFOLDERS, SIGDN_FILESYSPATH};
+    use windows::Win32::System::Com::{CoCreateInstance, CLSCTX_INPROC_SERVER, CoInitializeEx, COINIT_APARTMENTTHREADED};
+    
+    unsafe {
+        let _ = CoInitializeEx(None, COINIT_APARTMENTTHREADED);
+        let dialog: IFileOpenDialog = match CoCreateInstance(&FileOpenDialog, None, CLSCTX_INPROC_SERVER) {
+            Ok(d) => d,
+            Err(_) => return None,
+        };
+        let _ = dialog.SetOptions(FOS_PICKFOLDERS);
+        if dialog.Show(windows::Win32::Foundation::HWND(std::ptr::null_mut())).is_ok() {
+            if let Ok(item) = dialog.GetResult() {
+                if let Ok(display_name) = item.GetDisplayName(SIGDN_FILESYSPATH) {
+                    return Some(display_name.to_string().unwrap_or_default());
+                }
+            }
+        }
+    }
+    None
+}
+
+#[cfg(not(target_os = "windows"))]
+fn pick_folder_dialog() -> Option<String> {
+    None
+}
+
+#[cfg(target_os = "windows")]
+fn set_autostart_registry(enable: bool) -> Result<(), String> {
+    use windows::Win32::System::Registry::{
+        RegOpenKeyExW, RegSetValueExW, RegDeleteValueW, RegCloseKey,
+        HKEY_CURRENT_USER, KEY_SET_VALUE, REG_SZ
+    };
+    use windows::core::{HSTRING, PCWSTR};
+
+    let subkey = HSTRING::from("Software\\Microsoft\\Windows\\CurrentVersion\\Run");
+    let val_name = HSTRING::from("KelpLauncher");
+
+    unsafe {
+        let mut hkey = windows::Win32::System::Registry::HKEY::default();
+        let status = RegOpenKeyExW(
+            HKEY_CURRENT_USER,
+            PCWSTR(subkey.as_ptr()),
+            0,
+            KEY_SET_VALUE,
+            &mut hkey,
+        );
+        if status.is_err() {
+            return Err("Failed to open Registry Run subkey".to_string());
+        }
+
+        if enable {
+            let exe_path = match std::env::current_exe() {
+                Ok(p) => p,
+                Err(e) => {
+                    let _ = RegCloseKey(hkey);
+                    return Err(e.to_string());
+                }
+            };
+            let path_str = format!("\"{}\"", exe_path.to_string_lossy());
+            let path_w: Vec<u16> = path_str.encode_utf16().chain(std::iter::once(0)).collect();
+            let set_res = RegSetValueExW(
+                hkey,
+                PCWSTR(val_name.as_ptr()),
+                0,
+                REG_SZ,
+                Some(std::slice::from_raw_parts(path_w.as_ptr() as *const u8, path_w.len() * 2)),
+            );
+            let _ = RegCloseKey(hkey);
+            if set_res.is_err() {
+                return Err("Failed to set autostart registry value".to_string());
+            }
+        } else {
+            let _ = RegDeleteValueW(hkey, PCWSTR(val_name.as_ptr()));
+            let _ = RegCloseKey(hkey);
+        }
+    }
+    Ok(())
+}
+
+#[cfg(not(target_os = "windows"))]
+fn set_autostart_registry(_enable: bool) -> Result<(), String> {
+    Ok(())
+}
+
+#[cfg(target_os = "windows")]
+fn is_autostart_enabled() -> bool {
+    use windows::Win32::System::Registry::{
+        RegOpenKeyExW, RegQueryValueExW, RegCloseKey,
+        HKEY_CURRENT_USER, KEY_QUERY_VALUE
+    };
+    use windows::core::{HSTRING, PCWSTR};
+
+    let subkey = HSTRING::from("Software\\Microsoft\\Windows\\CurrentVersion\\Run");
+    let val_name = HSTRING::from("KelpLauncher");
+
+    unsafe {
+        let mut hkey = windows::Win32::System::Registry::HKEY::default();
+        if RegOpenKeyExW(HKEY_CURRENT_USER, PCWSTR(subkey.as_ptr()), 0, KEY_QUERY_VALUE, &mut hkey).is_ok() {
+            let status = RegQueryValueExW(hkey, PCWSTR(val_name.as_ptr()), None, None, None, None);
+            let _ = RegCloseKey(hkey);
+            return status.is_ok();
+        }
+    }
+    false
+}
+
+#[cfg(not(target_os = "windows"))]
+fn is_autostart_enabled() -> bool {
+    false
 }

@@ -171,6 +171,13 @@ impl Storage {
         Ok(())
     }
 
+    /// Clears all learning and query selection history from the database.
+    pub fn clear_learning_data(&self) -> Result<()> {
+        let conn = self.get_conn();
+        conn.execute("DELETE FROM query_selections", [])?;
+        Ok(())
+    }
+
     /// Loads all file metadata from the database into memory.
     pub fn load_all_files(&self) -> Result<Vec<FileMetadata>> {
         let conn = self.get_conn();

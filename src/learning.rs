@@ -143,4 +143,17 @@ impl LearningEngine {
     pub fn is_ready(&self) -> bool {
         self.cache.read().is_ok()
     }
+
+    /// Clears the in-memory learning cache and purges stored query selections from database.
+    pub fn clear_cache(&self) -> Result<(), String> {
+        {
+            let mut cache = match self.cache.write() {
+                Ok(guard) => guard,
+                Err(poisoned) => poisoned.into_inner(),
+            };
+            cache.clear();
+        }
+        self.storage.clear_learning_data().map_err(|e| e.to_string())?;
+        Ok(())
+    }
 }

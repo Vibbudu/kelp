@@ -908,6 +908,523 @@
             margin-left: 2px;
         }
 
+        /* ===== APPLE macOS STYLE SETTINGS PANEL ===== */
+        #settings-panel {
+            display: none;
+            flex-direction: column;
+            width: 100%;
+            height: 440px;
+            background: rgba(18, 18, 22, 0.96);
+            backdrop-filter: blur(40px) saturate(180%);
+            -webkit-backdrop-filter: blur(40px) saturate(180%);
+            overflow: hidden;
+            border-radius: 12px;
+            animation: fadeIn 140ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        .settings-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 18px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .settings-header-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .settings-header-icon {
+            font-size: 20px;
+            color: #0078D4;
+        }
+
+        .settings-header-title {
+            font-size: 14px;
+            font-weight: 600;
+            letter-spacing: -0.01em;
+            color: var(--text-primary);
+        }
+
+        .settings-header-badge {
+            font-size: 11px;
+            padding: 2px 7px;
+            border-radius: 10px;
+            background: rgba(0, 120, 212, 0.15);
+            color: #60CDFF;
+            font-weight: 600;
+        }
+
+        .settings-done-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            color: var(--text-primary);
+            padding: 6px 14px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 120ms ease;
+        }
+
+        .settings-done-btn:hover {
+            background: rgba(255, 255, 255, 0.15);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .settings-body {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        /* Sidebar Tabs */
+        .settings-sidebar {
+            width: 180px;
+            padding: 12px 10px;
+            border-right: 1px solid rgba(255, 255, 255, 0.06);
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            background: rgba(0, 0, 0, 0.15);
+        }
+
+        .settings-nav-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 12px;
+            border-radius: 8px;
+            color: var(--text-secondary);
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 120ms ease;
+            user-select: none;
+        }
+
+        .settings-nav-item:hover {
+            background: rgba(255, 255, 255, 0.06);
+            color: var(--text-primary);
+        }
+
+        .settings-nav-item.active {
+            background: rgba(0, 120, 212, 0.2);
+            color: #60CDFF;
+            font-weight: 600;
+        }
+
+        .settings-nav-item .material-symbols-outlined {
+            font-size: 18px;
+        }
+
+        /* Content Area */
+        .settings-content {
+            flex: 1;
+            padding: 16px 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .settings-section {
+            display: none;
+            flex-direction: column;
+            gap: 14px;
+            animation: fadeIn 120ms ease-out forwards;
+        }
+
+        .settings-section.active {
+            display: flex;
+        }
+
+        .settings-section-title {
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--text-secondary);
+            padding-left: 4px;
+        }
+
+        /* Inset Grouped Cards (Apple Design Language) */
+        .settings-group {
+            background: rgba(255, 255, 255, 0.035);
+            border: 1px solid rgba(255, 255, 255, 0.07);
+            border-radius: 12px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .settings-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 16px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+            gap: 16px;
+        }
+
+        .settings-row:last-child {
+            border-bottom: none;
+        }
+
+        .settings-row-left {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            flex: 1;
+        }
+
+        .settings-row-label {
+            font-size: 13.5px;
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+
+        .settings-row-sub {
+            font-size: 12px;
+            color: var(--text-secondary);
+            line-height: 1.35;
+        }
+
+        /* Apple Switch Control */
+        .apple-switch {
+            position: relative;
+            display: inline-block;
+            width: 44px;
+            height: 24px;
+            flex-shrink: 0;
+        }
+
+        .apple-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .apple-switch-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(255, 255, 255, 0.15);
+            border-radius: 24px;
+            transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .apple-switch-slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            border-radius: 50%;
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+            transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .apple-switch input:checked + .apple-switch-slider {
+            background-color: #30D158; /* Apple vibrant green */
+        }
+
+        .apple-switch input:checked + .apple-switch-slider:before {
+            transform: translateX(20px);
+        }
+
+        /* Select Dropdowns */
+        .settings-select {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            color: var(--text-primary);
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-family: 'Inter', sans-serif;
+            font-size: 12.5px;
+            outline: none;
+            cursor: pointer;
+            transition: all 120ms ease;
+        }
+
+        .settings-select option {
+            background: #202024;
+            color: white;
+        }
+
+        .settings-select:hover {
+            background: rgba(255, 255, 255, 0.12);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        /* Hotkey Pills & Controls */
+        .hotkey-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            background: rgba(0, 120, 212, 0.15);
+            border: 1px solid rgba(0, 120, 212, 0.3);
+            color: #60CDFF;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-family: 'Geist', monospace;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .hotkey-presets {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        .hotkey-preset-btn {
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: var(--text-secondary);
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 11.5px;
+            font-family: 'Geist', monospace;
+            cursor: pointer;
+            transition: all 120ms ease;
+        }
+
+        .hotkey-preset-btn:hover {
+            background: rgba(255, 255, 255, 0.12);
+            color: var(--text-primary);
+        }
+
+        .hotkey-preset-btn.active {
+            background: rgba(0, 120, 212, 0.25);
+            border-color: #0078D4;
+            color: #60CDFF;
+            font-weight: 600;
+        }
+
+        .custom-hotkey-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-shrink: 0;
+        }
+
+        .hotkey-recorder-box {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            color: #60CDFF;
+            padding: 7px 16px;
+            border-radius: 8px;
+            font-family: 'Geist', monospace;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            user-select: none;
+            transition: all 150ms ease;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+        }
+
+        .hotkey-recorder-box:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.22);
+        }
+
+        .hotkey-recorder-box.recording {
+            border-color: #0078D4;
+            background: rgba(0, 120, 212, 0.2);
+            color: #FFFFFF;
+            box-shadow: 0 0 0 3px rgba(0, 120, 212, 0.35);
+            animation: pulseRecord 1.5s infinite ease-in-out;
+        }
+
+        @keyframes pulseRecord {
+            0%, 100% { box-shadow: 0 0 0 2px rgba(0, 120, 212, 0.4); }
+            50% { box-shadow: 0 0 0 5px rgba(0, 120, 212, 0.15); }
+        }
+
+        .shake {
+            animation: shake 300ms ease-in-out;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-6px); }
+            40%, 80% { transform: translateX(6px); }
+        }
+
+        .settings-bang-input {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: #60CDFF;
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-family: 'Geist', monospace;
+            font-size: 13px;
+            font-weight: 600;
+            width: 70px;
+            text-align: center;
+            outline: none;
+            transition: all 120ms ease;
+        }
+
+        .settings-bang-input:focus {
+            border-color: #0078D4;
+            background: rgba(0, 120, 212, 0.18);
+            box-shadow: 0 0 0 2px rgba(0, 120, 212, 0.35);
+        }
+
+        /* Path Items */
+        .paths-list {
+            display: flex;
+            flex-direction: column;
+            max-height: 160px;
+            overflow-y: auto;
+        }
+
+        .path-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 14px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+            font-size: 12px;
+            color: var(--text-primary);
+        }
+
+        .path-item:last-child {
+            border-bottom: none;
+        }
+
+        .path-item-left {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .path-item-icon {
+            font-size: 16px;
+            color: #0078D4;
+        }
+
+        .path-item-remove {
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            padding: 4px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            transition: color 120ms;
+        }
+
+        .path-item-remove:hover {
+            color: #EF5350;
+            background: rgba(239, 83, 80, 0.1);
+        }
+
+        .path-item-remove .material-symbols-outlined {
+            font-size: 16px;
+        }
+
+        .settings-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-family: 'Inter', sans-serif;
+            font-size: 12.5px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 120ms ease;
+        }
+
+        .settings-btn-primary {
+            background: var(--primary);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+        }
+
+        .settings-btn-primary:hover {
+            background: #0063B1;
+        }
+
+        .settings-btn-secondary {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            color: var(--text-primary);
+        }
+
+        .settings-btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.14);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .settings-btn-danger {
+            background: rgba(229, 57, 53, 0.15);
+            border: 1px solid rgba(229, 57, 53, 0.3);
+            color: #EF5350;
+        }
+
+        .settings-btn-danger:hover {
+            background: rgba(229, 57, 53, 0.25);
+            border-color: rgba(229, 57, 53, 0.5);
+        }
+
+        .settings-status-tag {
+            font-size: 11.5px;
+            color: var(--text-secondary);
+            font-style: italic;
+        }
+
+        .settings-gear-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            border-radius: 6px;
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 120ms ease;
+            margin-left: auto;
+        }
+
+        .settings-gear-btn:hover {
+            color: var(--text-primary);
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .settings-gear-btn .material-symbols-outlined {
+            font-size: 18px;
+        }
+
+        .chips-left {
+            display: flex;
+            gap: 6px;
+        }
+
         /* ===== REDUCED MOTION ACCESSIBILITY ===== */
         @media (prefers-reduced-motion: reduce) {
             *,
@@ -948,10 +1465,292 @@
             <input id="search-input" type="text" placeholder="Type here to search" aria-label="Search query" autocomplete="off" spellcheck="false" />
         </div>
         <div class="chips-row">
-            <button class="chip active" data-tab="all" onclick="setTab('all')">All</button>
-            <button class="chip inactive" data-tab="apps" onclick="setTab('apps')">Apps</button>
-            <button class="chip inactive" data-tab="docs" onclick="setTab('docs')">Documents</button>
-            <button class="chip inactive" data-tab="web" onclick="setTab('web')">Web</button>
+            <div class="chips-left">
+                <button class="chip active" data-tab="all" onclick="setTab('all')">All</button>
+                <button class="chip inactive" data-tab="apps" onclick="setTab('apps')">Apps</button>
+                <button class="chip inactive" data-tab="docs" onclick="setTab('docs')">Documents</button>
+                <button class="chip inactive" data-tab="web" onclick="setTab('web')">Web</button>
+            </div>
+            <button class="settings-gear-btn" onclick="showSettings()" title="Settings (or search 'kelp')">
+                <span class="material-symbols-outlined" aria-hidden="true">settings</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Breadcrumb Bar (Folder Navigation) -->
+    <div id="breadcrumb-bar">
+        <button class="breadcrumb-back" id="breadcrumb-back-btn" onclick="exitFolderBrowse()">
+            <span class="material-symbols-outlined" aria-hidden="true">arrow_back</span>
+            Back
+        </button>
+        <span class="breadcrumb-path" id="breadcrumb-path"></span>
+    </div>
+
+    <!-- Shutdown Timer Panel -->
+    <div id="timer-panel">
+        <div class="timer-header">
+            <div class="timer-header-top">
+                <div class="timer-header-left">
+                    <div class="timer-icon-box">
+                        <span class="material-symbols-outlined" aria-hidden="true">power_settings_new</span>
+                    </div>
+                    <div>
+                        <div class="timer-title">Schedule Shutdown</div>
+                        <div class="timer-subtitle">System Utility</div>
+                    </div>
+                </div>
+                <div class="timer-header-right">
+                    <span class="timer-value" id="timer-value-display">1h</span>
+                    <button class="timer-schedule-btn" onclick="executeTimerAction()">Schedule</button>
+                </div>
+            </div>
+            <div class="timer-chips" id="timer-chips">
+                <button class="timer-chip" onclick="setTimerPreset(0)">15m</button>
+                <button class="timer-chip" onclick="setTimerPreset(1)">30m</button>
+                <button class="timer-chip active" onclick="setTimerPreset(2)">1h</button>
+                <button class="timer-chip" onclick="setTimerPreset(3)">2h</button>
+            </div>
+            <div class="timer-slider-container">
+                <div class="timer-slider-wrapper">
+                    <div class="timer-slider-track"></div>
+                    <div class="timer-slider-fill" id="timer-slider-fill" style="width: 66.6%;"></div>
+                    <div class="timer-slider-thumb" id="timer-slider-thumb" style="left: calc(66.6% - 9px);"></div>
+                    <input type="range" min="0" max="3" step="1" value="2" class="timer-slider-input" id="timer-slider" oninput="onTimerSliderInput(this.value)">
+                </div>
+                <div class="timer-slider-labels">
+                    <span class="timer-slider-label">15m</span>
+                    <span class="timer-slider-label">30m</span>
+                    <span class="timer-slider-label active">1h</span>
+                    <span class="timer-slider-label">2h</span>
+                </div>
+            </div>
+        </div>
+        <div class="timer-alternatives">
+            <button class="timer-alt-btn" onclick="executeSystemCommand('rundll32.exe powrprof.dll,SetSuspendState 0,1,0')">
+                <span class="material-symbols-outlined" aria-hidden="true">bedtime</span>
+                Sleep instead
+            </button>
+            <button class="timer-alt-btn" onclick="executeSystemCommand('shutdown /r /t 0')">
+                <span class="material-symbols-outlined" aria-hidden="true">restart_alt</span>
+                Restart
+            </button>
+        </div>
+    </div>
+
+    <!-- Power Action Confirmation Panel (Failsafe) -->
+    <div id="confirm-panel">
+        <div class="confirm-card">
+            <div class="confirm-icon-box" id="confirm-icon-box">
+                <span class="material-symbols-outlined" id="confirm-icon" aria-hidden="true">power_settings_new</span>
+            </div>
+            <div class="confirm-content">
+                <div class="confirm-title" id="confirm-title">Are you sure you want to shut down?</div>
+                <div class="confirm-subtitle" id="confirm-subtitle">All apps will close and your PC will turn off. Any unsaved work will be lost.</div>
+            </div>
+        </div>
+        <div class="confirm-actions">
+            <button class="confirm-btn confirm-cancel-btn" id="confirm-cancel-btn" onclick="cancelPowerConfirmation()">
+                Cancel
+                <span class="confirm-key-hint">Esc</span>
+            </button>
+            <button class="confirm-btn confirm-execute-btn" id="confirm-execute-btn" onclick="executeConfirmedPowerAction()">
+                <span class="material-symbols-outlined" id="confirm-btn-icon" aria-hidden="true">power_settings_new</span>
+                <span id="confirm-btn-label">Shut Down</span>
+                <span class="confirm-key-hint">↵</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Apple macOS Style Settings Panel -->
+    <div id="settings-panel">
+        <div class="settings-header">
+            <div class="settings-header-left">
+                <span class="material-symbols-outlined settings-header-icon" aria-hidden="true">settings</span>
+                <span class="settings-header-title">Preferences</span>
+                <span class="settings-header-badge" id="settings-header-version">v0.1.0</span>
+            </div>
+            <button class="settings-done-btn" onclick="hideSettings()">
+                Done
+                <span class="confirm-key-hint">Esc</span>
+            </button>
+        </div>
+        <div class="settings-body">
+            <!-- Sidebar Navigation -->
+            <div class="settings-sidebar">
+                <div class="settings-nav-item active" data-sec="general" onclick="switchSettingsSection('general')">
+                    <span class="material-symbols-outlined" aria-hidden="true">tune</span>
+                    General
+                </div>
+                <div class="settings-nav-item" data-sec="indexing" onclick="switchSettingsSection('indexing')">
+                    <span class="material-symbols-outlined" aria-hidden="true">folder_managed</span>
+                    Indexing
+                </div>
+                <div class="settings-nav-item" data-sec="power" onclick="switchSettingsSection('power')">
+                    <span class="material-symbols-outlined" aria-hidden="true">shield</span>
+                    Power Failsafe
+                </div>
+                <div class="settings-nav-item" data-sec="web" onclick="switchSettingsSection('web')">
+                    <span class="material-symbols-outlined" aria-hidden="true">language</span>
+                    Web Search
+                </div>
+                <div class="settings-nav-item" data-sec="about" onclick="switchSettingsSection('about')">
+                    <span class="material-symbols-outlined" aria-hidden="true">info</span>
+                    About
+                </div>
+            </div>
+
+            <!-- Content Sections -->
+            <div class="settings-content">
+                <!-- 1. General Section -->
+                <div class="settings-section active" id="sec-general">
+                    <div class="settings-section-title">Activation & Shortcut</div>
+                    <div class="settings-group">
+                        <div class="settings-row" style="align-items: center;">
+                            <div class="settings-row-left">
+                                <div class="settings-row-label">Global Activation Hotkey</div>
+                                <div class="settings-row-sub" id="hotkey-status-text">Press combination of modifiers (Alt, Ctrl, Win, Shift) and a key</div>
+                                <div class="hotkey-presets" style="margin-top: 10px;">
+                                    <button class="hotkey-preset-btn active" id="hk-alt-space" onclick="selectHotkeyPreset('Alt+Space')">Alt + Space</button>
+                                    <button class="hotkey-preset-btn" id="hk-ctrl-space" onclick="selectHotkeyPreset('Ctrl+Space')">Ctrl + Space</button>
+                                    <button class="hotkey-preset-btn" id="hk-win-k" onclick="selectHotkeyPreset('Win+K')">Win + K</button>
+                                    <button class="hotkey-preset-btn" id="hk-ctrl-k" onclick="selectHotkeyPreset('Ctrl+K')">Ctrl + K</button>
+                                </div>
+                            </div>
+                            <div class="custom-hotkey-container">
+                                <div id="hotkey-recorder-box" class="hotkey-recorder-box" onclick="toggleRecordHotkey()" title="Click to record custom shortcut">
+                                    <span class="material-symbols-outlined" style="font-size: 16px; opacity: 0.8;" aria-hidden="true">keyboard</span>
+                                    <span id="hotkey-display-text">Alt + Space</span>
+                                </div>
+                                <button class="settings-btn settings-btn-primary" id="btn-record-hotkey" onclick="toggleRecordHotkey()">
+                                    <span id="record-btn-text">Record Shortcut</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="settings-row">
+                            <div class="settings-row-left">
+                                <div class="settings-row-label">Launch on Windows Startup</div>
+                                <div class="settings-row-sub">Automatically start Kelp in the system tray when you log in</div>
+                            </div>
+                            <label class="apple-switch">
+                                <input type="checkbox" id="cfg-autostart" onchange="onSettingToggle('launch_at_startup', this.checked)">
+                                <span class="apple-switch-slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. Indexing Section -->
+                <div class="settings-section" id="sec-indexing">
+                    <div class="settings-section-title">Search Directories</div>
+                    <div class="settings-group">
+                        <div class="paths-list" id="settings-paths-list">
+                            <!-- Populated dynamically -->
+                        </div>
+                        <div class="settings-row">
+                            <div class="settings-row-left">
+                                <div class="settings-row-label">Add Custom Folder</div>
+                                <div class="settings-row-sub">Include additional directories in search index</div>
+                            </div>
+                            <button class="settings-btn settings-btn-secondary" onclick="requestPickFolder()">
+                                <span class="material-symbols-outlined" aria-hidden="true" style="font-size: 16px;">add</span>
+                                Add Folder...
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="settings-section-title">Database Maintenance</div>
+                    <div class="settings-group">
+                        <div class="settings-row">
+                            <div class="settings-row-left">
+                                <div class="settings-row-label">Re-index All Directories</div>
+                                <div class="settings-row-sub" id="settings-reindex-status">Perform a full recursive sweep across all configured paths</div>
+                            </div>
+                            <button class="settings-btn settings-btn-primary" id="btn-reindex" onclick="requestReindex()">
+                                <span class="material-symbols-outlined" aria-hidden="true" style="font-size: 16px;">refresh</span>
+                                Re-index Now
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. Power Failsafe Section -->
+                <div class="settings-section" id="sec-power">
+                    <div class="settings-section-title">Safety Verification</div>
+                    <div class="settings-group">
+                        <div class="settings-row">
+                            <div class="settings-row-left">
+                                <div class="settings-row-label">Power Action Confirmation Failsafe</div>
+                                <div class="settings-row-sub">Show an interactive verification modal before executing Shut Down, Restart, Sleep, or Sign Out to prevent accidental data loss</div>
+                            </div>
+                            <label class="apple-switch">
+                                <input type="checkbox" id="cfg-power-failsafe" checked onchange="onSettingToggle('power_failsafe', this.checked)">
+                                <span class="apple-switch-slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 4. Web Search Section -->
+                <div class="settings-section" id="sec-web">
+                    <div class="settings-section-title">Search Engine & Bangs</div>
+                    <div class="settings-group">
+                        <div class="settings-row">
+                            <div class="settings-row-left">
+                                <div class="settings-row-label">Default Web Search Engine</div>
+                                <div class="settings-row-sub">Engine used when pressing Enter on web results or using bang queries</div>
+                            </div>
+                            <select class="settings-select" id="cfg-web-engine" onchange="onSettingToggle('default_web_engine', this.value)">
+                                <option value="google">Google</option>
+                                <option value="duckduckgo">DuckDuckGo</option>
+                                <option value="bing">Microsoft Bing</option>
+                                <option value="brave">Brave Search</option>
+                                <option value="yahoo">Yahoo</option>
+                            </select>
+                        </div>
+                        <div class="settings-row">
+                            <div class="settings-row-left">
+                                <div class="settings-row-label">Bang Search Prefix</div>
+                                <div class="settings-row-sub">Custom prefix to trigger instant web search (e.g. <code>!b</code>, <code>!g</code>, <code>!w</code>, <code>?</code>)</div>
+                            </div>
+                            <input type="text" id="cfg-web-bang" class="settings-bang-input" value="!b" maxlength="8" spellcheck="false" autocomplete="off" oninput="onSettingToggle('web_bang_prefix', this.value.trim())" />
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 5. About Section -->
+                <div class="settings-section" id="sec-about">
+                    <div class="settings-section-title">System Diagnostics</div>
+                    <div class="settings-group">
+                        <div class="settings-row">
+                            <div class="settings-row-left">
+                                <div class="settings-row-label">Files Indexed in Memory</div>
+                                <div class="settings-row-sub">Total searchable items loaded in RAM</div>
+                            </div>
+                            <span class="hotkey-badge" id="stats-total-files">--</span>
+                        </div>
+                        <div class="settings-row">
+                            <div class="settings-row-left">
+                                <div class="settings-row-label">Memory Footprint</div>
+                                <div class="settings-row-sub">Working set RAM consumption</div>
+                            </div>
+                            <span class="hotkey-badge" id="stats-memory-mb">-- MB</span>
+                        </div>
+                    </div>
+
+                    <div class="settings-section-title">Learning & Cache Reset</div>
+                    <div class="settings-group">
+                        <div class="settings-row">
+                            <div class="settings-row-left">
+                                <div class="settings-row-label">Clear Search Learning History</div>
+                                <div class="settings-row-sub" id="stats-cache-status">Reset learned ranking frequency and recency heuristics</div>
+                            </div>
+                            <button class="settings-btn settings-btn-danger" onclick="requestClearCache()">
+                                Clear History
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -1350,7 +2149,27 @@
     function getMatchingSystemCommands(query) {
         if (!query) return [];
         const cleanQuery = query.trim().toLowerCase();
-        if (cleanQuery.length < 2) return [];
+        if (!cleanQuery) return [];
+
+        // Check for Kelp Settings trigger
+        if (['settings', 'setting', 'preferences', 'pref', 'config', 'configuration', 'kelp', 'options', 'setup'].some(kw => kw.includes(cleanQuery) || cleanQuery.includes(kw))) {
+            return [{
+                metadata: {
+                    name: 'Kelp Preferences',
+                    extension: '',
+                    parent_folder: 'Settings, Hotkeys & Indexing',
+                    full_path: '__kelp_settings__',
+                    modified_date: 0,
+                    size: 0,
+                    file_type: 'Settings'
+                },
+                score: 1.0,
+                match_type: 'Settings',
+                icon_base64: null,
+                _systemIcon: 'settings',
+                _hasTimer: false
+            }];
+        }
 
         // If the query is actually a relative or absolute natural language schedule pattern, skip showing full static system command results to keep layout uncluttered
         const isRelative = /^(shutdown|restart|shut\s*down)\s+in\s+/i.test(cleanQuery);
@@ -1398,6 +2217,8 @@
         isShowingActions = false;
         isShowingTimer = false;
         isShowingConfirm = false;
+        isShowingSettings = false;
+        if (isRecordingHotkey) stopRecordingHotkey();
         pendingPowerAction = null;
         actionItems = [];
         actionTarget = null;
@@ -1406,6 +2227,9 @@
         breadcrumbBar.style.display = 'none';
         document.getElementById('timer-panel').style.display = 'none';
         document.getElementById('confirm-panel').style.display = 'none';
+        document.getElementById('settings-panel').style.display = 'none';
+        const searchArea = document.querySelector('.search-area');
+        if (searchArea) searchArea.style.display = 'flex';
         renderResults();
         updateChipStyles();
         setTimeout(() => {
@@ -1427,7 +2251,7 @@
     function hideLauncher() {
         if (hideTimeout) return;
         launcher.classList.remove('launcher-visible');
-        launcher.classList.add('launcher-exit');
+launcher.classList.add('launcher-exit');
         hideTimeout = setTimeout(() => {
             window.ipc.postMessage(JSON.stringify({ type: 'hide_window' }));
             hideTimeout = null;
@@ -1436,6 +2260,7 @@
 
     // ===== Set Results (called from Rust) =====
     function setResults(results, debugInfo) {
+        if (isShowingSettings) return;
         const query = searchInput.value;
         const sysMatches = getMatchingSystemCommands(query);
         const nlMatch = getNaturalLanguageSchedule(query);
@@ -1474,19 +2299,27 @@
         if (currentTab === 'docs') {
             const docExtensions = ['pdf', 'xlsx', 'xls', 'docx', 'doc', 'txt', 'md', 'csv'];
             return rawResults.filter(r => {
-                const ft = (r.metadata.file_type || '').toLowerCase();
                 const ext = (r.metadata.extension || '').toLowerCase();
-                return ft === 'file' && docExtensions.includes(ext);
+                return docExtensions.includes(ext);
+            });
+        }
+
+        if (currentTab === 'web') {
+            return rawResults.filter(r => {
+                const ft = (r.metadata.file_type || '').toLowerCase();
+                return ft === 'websearch';
             });
         }
 
         return rawResults;
     }
 
-    // ===== Set Tab =====
+    // ===== Set Active Tab Filter =====
     function setTab(tab) {
-        if (tab === 'web') {
-            searchWeb();
+        if (currentTab === tab) {
+            currentTab = 'all';
+            updateChipStyles();
+            renderResults();
             return;
         }
         currentTab = tab;
@@ -1511,6 +2344,11 @@
 
     // ===== Render Results =====
     function renderResults() {
+        if (isShowingSettings) {
+            resultsContainer.classList.remove('has-results');
+            footer.classList.remove('show-footer');
+            return;
+        }
         const filtered = getFilteredResults();
 
         // 1. Remove any remaining exit rows immediately to prevent layout interference
@@ -1643,10 +2481,17 @@
                 row.onclick = function () {
                     const filtered = getFilteredResults();
                     const result = filtered[index];
-                    if (result && result.match_type === 'SystemCommand') {
-                        setSelectedIndex(index);
-                        executeSystemCommand(result.metadata.full_path);
-                        return;
+                    if (result) {
+                        if (result.metadata.full_path === '__kelp_settings__' || result.match_type === 'Settings' || (result.metadata.file_type || '').toLowerCase() === 'settings') {
+                            setSelectedIndex(index);
+                            showSettings();
+                            return;
+                        }
+                        if (result.match_type === 'SystemCommand') {
+                            setSelectedIndex(index);
+                            executeSystemCommand(result.metadata.full_path);
+                            return;
+                        }
                     }
                     setSelectedIndex(index);
                     executeSelected();
@@ -1706,8 +2551,24 @@
                 const fileType = (activeRow.getAttribute('data-file-type') || '').toLowerCase();
                 const query = searchInput.value;
 
+                if (path === '__kelp_settings__' || fileType === 'settings') {
+                    showSettings();
+                    return;
+                }
+
                 if (fileType === 'systemcommand') {
                     executeSystemCommand(path);
+                    return;
+                }
+
+                if (path === '__web_search__' || fileType === 'websearch') {
+                    const bang = (currentSettings.web_bang_prefix || '!b').trim();
+                    const bangWithSpace = bang + ' ';
+                    if (query.startsWith(bangWithSpace)) {
+                        searchWeb(query.substring(bangWithSpace.length));
+                    } else {
+                        searchWeb(query);
+                    }
                     return;
                 }
 
@@ -2209,24 +3070,332 @@
     }
 
     function executeSystemCommand(command) {
+        if (command === '__kelp_settings__') {
+            showSettings();
+            return;
+        }
+
+        // Check if power failsafe confirmation is enabled
+        const failsafeActive = !currentSettings || currentSettings.power_failsafe !== false;
+
         // Match against known system commands for beautiful title & icon
         const matched = SYSTEM_COMMANDS.find(c => c.command === command);
-        if (matched) {
-            promptPowerConfirmation(matched.name, matched.command, matched.icon);
-        } else if (command.includes('shutdown /r')) {
-            promptPowerConfirmation('Restart', command, 'restart_alt');
-        } else if (command.includes('shutdown /s')) {
-            promptPowerConfirmation('Shut Down', command, 'power_settings_new');
-        } else if (command.includes('SetSuspendState')) {
-            promptPowerConfirmation('Sleep', command, 'bedtime');
-        } else if (command.includes('shutdown /l')) {
-            promptPowerConfirmation('Sign Out', command, 'logout');
-        } else if (command.includes('LockWorkStation')) {
-            promptPowerConfirmation('Lock Screen', command, 'lock');
+        if (failsafeActive) {
+            if (matched) {
+                promptPowerConfirmation(matched.name, matched.command, matched.icon);
+            } else if (command.includes('shutdown /r')) {
+                promptPowerConfirmation('Restart', command, 'restart_alt');
+            } else if (command.includes('shutdown /s')) {
+                promptPowerConfirmation('Shut Down', command, 'power_settings_new');
+            } else if (command.includes('SetSuspendState')) {
+                promptPowerConfirmation('Sleep', command, 'bedtime');
+            } else if (command.includes('shutdown /l')) {
+                promptPowerConfirmation('Sign Out', command, 'logout');
+            } else if (command.includes('LockWorkStation')) {
+                promptPowerConfirmation('Lock Screen', command, 'lock');
+            } else {
+                promptPowerConfirmation('System Action', command, 'power_settings_new');
+            }
         } else {
-            promptPowerConfirmation('System Action', command, 'power_settings_new');
+            // Direct execution if failsafe is disabled by user in Settings
+            window.ipc.postMessage(JSON.stringify({ type: 'system_command', command: command }));
+            hideLauncher();
         }
     }
+
+    // ===== APPLE SETTINGS LOGIC & IPC =====
+    let isShowingSettings = false;
+    let isRecordingHotkey = false;
+    let currentSettings = {
+        hotkey: "Alt+Space",
+        search_paths: [],
+        excluded_paths: [],
+        launch_at_startup: false,
+        power_failsafe: true,
+        default_web_engine: "google",
+        web_bang_prefix: "!b"
+    };
+
+    function showSettings() {
+        isShowingSettings = true;
+        isShowingConfirm = false;
+        isShowingTimer = false;
+        isShowingActions = false;
+        isBrowsingFolder = false;
+        if (isRecordingHotkey) stopRecordingHotkey();
+
+        // 1. Clear and isolate results completely so nothing renders behind/beneath settings
+        rawResults = [];
+        const rows = resultsList.querySelectorAll('.result-row');
+        rows.forEach(r => r.remove());
+        resultsContainer.classList.remove('has-results');
+        footer.classList.remove('show-footer');
+        breadcrumbBar.style.display = 'none';
+        document.getElementById('timer-panel').style.display = 'none';
+        document.getElementById('confirm-panel').style.display = 'none';
+        
+        // 2. Hide search input bar for clean dedicated modal
+        const searchArea = document.querySelector('.search-area');
+        if (searchArea) searchArea.style.display = 'none';
+
+        // 3. Show Apple Settings panel
+        document.getElementById('settings-panel').style.display = 'flex';
+        triggerResize();
+
+        // 4. Request live config and statistics from Rust
+        window.ipc.postMessage(JSON.stringify({ type: 'get_settings' }));
+    }
+
+    function hideSettings() {
+        isShowingSettings = false;
+        if (isRecordingHotkey) stopRecordingHotkey();
+        document.getElementById('settings-panel').style.display = 'none';
+        
+        // Restore search input area
+        const searchArea = document.querySelector('.search-area');
+        if (searchArea) searchArea.style.display = 'flex';
+        
+        // Restore search results view
+        const query = searchInput.value;
+        if (query) {
+            window.ipc.postMessage(JSON.stringify({ type: 'search', query: query }));
+        } else {
+            rawResults = [];
+            renderResults();
+        }
+        triggerResize();
+        searchInput.focus();
+    }
+
+    function switchSettingsSection(sectionId) {
+        if (isRecordingHotkey) stopRecordingHotkey();
+
+        // Update sidebar nav item active class
+        const navItems = document.querySelectorAll('.settings-nav-item');
+        navItems.forEach(item => {
+            if (item.getAttribute('data-sec') === sectionId) {
+                item.classList.add('active');
+            } else {
+                item.classList.remove('active');
+            }
+        });
+
+        // Update content sections
+        const sections = document.querySelectorAll('.settings-section');
+        sections.forEach(sec => {
+            if (sec.id === `sec-${sectionId}`) {
+                sec.classList.add('active');
+            } else {
+                sec.classList.remove('active');
+            }
+        });
+    }
+
+    window.setSettings = function(config, stats) {
+        if (config) {
+            currentSettings = Object.assign({}, currentSettings, config);
+        }
+
+        // 1. Hotkey & Custom Display Box
+        const activeHk = currentSettings.hotkey || "Alt+Space";
+        updateHotkeyPresetButtons(activeHk);
+
+        // 2. Switches
+        const autostartEl = document.getElementById('cfg-autostart');
+        if (autostartEl) autostartEl.checked = !!currentSettings.launch_at_startup;
+
+        const failsafeEl = document.getElementById('cfg-power-failsafe');
+        if (failsafeEl) failsafeEl.checked = currentSettings.power_failsafe !== false;
+
+        // 3. Web Engine & Bang Prefix
+        const webEngineEl = document.getElementById('cfg-web-engine');
+        if (webEngineEl && currentSettings.default_web_engine) {
+            webEngineEl.value = currentSettings.default_web_engine;
+        }
+
+        const webBangEl = document.getElementById('cfg-web-bang');
+        if (webBangEl && currentSettings.web_bang_prefix) {
+            webBangEl.value = currentSettings.web_bang_prefix;
+        }
+
+        // 4. Render Search Paths List
+        renderSettingsPathsList();
+
+        // 5. Diagnostics Stats
+        if (stats) {
+            if (stats.total_files !== undefined) {
+                document.getElementById('stats-total-files').textContent = stats.total_files.toLocaleString();
+            }
+            if (stats.memory_mb !== undefined) {
+                document.getElementById('stats-memory-mb').textContent = `${stats.memory_mb.toFixed(1)} MB`;
+            }
+            if (stats.version) {
+                document.getElementById('settings-header-version').textContent = `v${stats.version}`;
+            }
+        }
+    };
+
+    function updateHotkeyPresetButtons(hotkeyStr) {
+        const activeClean = (hotkeyStr || '').replace(/\s+/g, '').toLowerCase();
+        const hkBtns = document.querySelectorAll('.hotkey-preset-btn');
+        hkBtns.forEach(btn => {
+            const btnHk = btn.textContent.replace(/\s+/g, '').toLowerCase();
+            if (btnHk === activeClean) {
+                btn.classList.add('active');
+            } else {
+                btn.classList.remove('active');
+            }
+        });
+        const displayText = document.getElementById('hotkey-display-text');
+        if (displayText && !isRecordingHotkey) {
+            displayText.textContent = hotkeyStr.replace('+', ' + ');
+        }
+    }
+
+    function toggleRecordHotkey() {
+        if (isRecordingHotkey) {
+            stopRecordingHotkey();
+        } else {
+            startRecordingHotkey();
+        }
+    }
+
+    function startRecordingHotkey() {
+        isRecordingHotkey = true;
+        const boxEl = document.getElementById('hotkey-recorder-box');
+        const displayText = document.getElementById('hotkey-display-text');
+        const btnText = document.getElementById('record-btn-text');
+        const statusEl = document.getElementById('hotkey-status-text');
+        if (boxEl) boxEl.classList.add('recording');
+        if (displayText) displayText.textContent = 'Press keys...';
+        if (btnText) btnText.textContent = 'Cancel';
+        if (statusEl) statusEl.innerHTML = '<span style="color: #60CDFF; font-weight: 500;">● Hold a modifier key (Ctrl, Alt, Win, or Shift) and press any key...</span>';
+    }
+
+    function stopRecordingHotkey() {
+        isRecordingHotkey = false;
+        const boxEl = document.getElementById('hotkey-recorder-box');
+        const displayText = document.getElementById('hotkey-display-text');
+        const btnText = document.getElementById('record-btn-text');
+        const statusEl = document.getElementById('hotkey-status-text');
+        if (boxEl) {
+            boxEl.classList.remove('recording', 'shake');
+        }
+        if (displayText) {
+            displayText.textContent = (currentSettings.hotkey || 'Alt+Space').replace('+', ' + ');
+        }
+        if (btnText) btnText.textContent = 'Record Shortcut';
+        if (statusEl) statusEl.textContent = 'Press combination of modifiers (Alt, Ctrl, Win, Shift) and a key';
+    }
+
+    function renderSettingsPathsList() {
+        const listEl = document.getElementById('settings-paths-list');
+        if (!listEl) return;
+        listEl.innerHTML = '';
+
+        const paths = currentSettings.search_paths || [];
+        if (paths.length === 0) {
+            listEl.innerHTML = '<div class="path-item" style="color: var(--text-secondary); font-style: italic;">No search paths configured. Default user folders are used.</div>';
+            return;
+        }
+
+        paths.forEach((p, idx) => {
+            const item = document.createElement('div');
+            item.className = 'path-item';
+            item.innerHTML = `
+                <div class="path-item-left" title="${escapeHtml(p)}">
+                    <span class="material-symbols-outlined path-item-icon" aria-hidden="true">folder</span>
+                    <span>${escapeHtml(p)}</span>
+                </div>
+                <button class="path-item-remove" onclick="removeSearchPath(${idx})" title="Remove path">
+                    <span class="material-symbols-outlined" aria-hidden="true">delete</span>
+                </button>
+            `;
+            listEl.appendChild(item);
+        });
+    }
+
+    function onSettingToggle(key, value) {
+        currentSettings[key] = value;
+        saveCurrentSettings();
+    }
+
+    function selectHotkeyPreset(hotkeyStr) {
+        currentSettings.hotkey = hotkeyStr;
+        updateHotkeyPresetButtons(hotkeyStr);
+        saveCurrentSettings();
+    }
+
+    function requestPickFolder() {
+        window.ipc.postMessage(JSON.stringify({ type: 'pick_folder' }));
+    }
+
+    window.onFolderPicked = function(path) {
+        if (!path) return;
+        if (!currentSettings.search_paths) currentSettings.search_paths = [];
+        if (!currentSettings.search_paths.includes(path)) {
+            currentSettings.search_paths.push(path);
+            renderSettingsPathsList();
+            saveCurrentSettings();
+            // Automatically re-index
+            requestReindex();
+        }
+    };
+
+    function removeSearchPath(index) {
+        if (!currentSettings.search_paths) return;
+        currentSettings.search_paths.splice(index, 1);
+        renderSettingsPathsList();
+        saveCurrentSettings();
+    }
+
+    function saveCurrentSettings() {
+        window.ipc.postMessage(JSON.stringify({
+            type: 'save_settings',
+            config: currentSettings
+        }));
+    }
+
+    window.onSettingsSaved = function(success) {
+        // Silent sync
+    };
+
+    function requestReindex() {
+        const btn = document.getElementById('btn-reindex');
+        const statusEl = document.getElementById('settings-reindex-status');
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<span class="material-symbols-outlined" aria-hidden="true" style="animation: spin 1s infinite linear;">sync</span> Indexing...';
+        }
+        if (statusEl) {
+            statusEl.textContent = 'Scanning directories and building memory index...';
+        }
+        window.ipc.postMessage(JSON.stringify({ type: 'reindex_now' }));
+    }
+
+    window.onReindexComplete = function(count) {
+        const btn = document.getElementById('btn-reindex');
+        const statusEl = document.getElementById('settings-reindex-status');
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<span class="material-symbols-outlined" aria-hidden="true">refresh</span> Re-index Now';
+        }
+        if (statusEl) {
+            statusEl.textContent = `✓ Successfully indexed ${count.toLocaleString()} files across all folders.`;
+        }
+        document.getElementById('stats-total-files').textContent = count.toLocaleString();
+    };
+
+    function requestClearCache() {
+        window.ipc.postMessage(JSON.stringify({ type: 'clear_cache' }));
+    }
+
+    window.onCacheCleared = function() {
+        const statusEl = document.getElementById('stats-cache-status');
+        if (statusEl) {
+            statusEl.textContent = '✓ Search learning history and frequency ranking cleared.';
+        }
+    };
 
     // ===== Trigger Resize (immediate, no debounce) =====
     let resizeTimeout = null;
@@ -2243,15 +3412,17 @@
         searchInput.focus();
     });
 
-    // Click anywhere (not on a button): re-focus search input
+    // Click anywhere (not on a button): re-focus search input when settings is closed
     document.addEventListener('click', (e) => {
+        if (isShowingSettings) return; // Do not steal focus inside settings
         if (e.target.tagName !== 'BUTTON' && e.target.closest('button') === null) {
             searchInput.focus();
         }
     });
 
-    // Input handler: 10ms debounced search with bang detection
+    // Input handler: 10ms debounced search with customizable bang detection
     searchInput.addEventListener('input', (e) => {
+        if (isShowingSettings) return;
         const query = e.target.value;
 
         // Exit folder browsing, context actions, or timer mode when user starts typing
@@ -2284,14 +3455,17 @@
 
         clearTimeout(searchTimeout);
         searchTimeout = setTimeout(() => {
-            // Bang search: !b <query> opens web search
-            if (query.startsWith('!b ') && query.length > 3) {
+            // Customizable Bang Search: e.g. "!b query", "!g query", etc.
+            const bang = (currentSettings.web_bang_prefix || '!b').trim();
+            const bangWithSpace = bang + ' ';
+            if (query.startsWith(bangWithSpace) && query.length > bangWithSpace.length) {
+                const targetEngine = (currentSettings.default_web_engine || 'Web');
                 // Show a hint result for web search
                 rawResults = [{
                     metadata: {
-                        name: 'Search the web: ' + query.substring(3),
+                        name: 'Search ' + targetEngine + ': ' + query.substring(bangWithSpace.length),
                         extension: '',
-                        parent_folder: 'google.com',
+                        parent_folder: targetEngine.toLowerCase() + '.com',
                         full_path: '__web_search__',
                         modified_date: 0,
                         size: 0,
@@ -2309,8 +3483,97 @@
         }, 10);
     });
 
+    // Global keyboard listener for recording hotkeys & Settings isolation
+    document.addEventListener('keydown', (e) => {
+        if (isRecordingHotkey) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            if (e.key === 'Escape') {
+                stopRecordingHotkey();
+                return;
+            }
+
+            // Live modifier feedback while holding keys
+            if (['Control', 'Alt', 'Shift', 'Meta'].includes(e.key)) {
+                const parts = [];
+                if (e.ctrlKey) parts.push('Ctrl');
+                if (e.altKey) parts.push('Alt');
+                if (e.shiftKey) parts.push('Shift');
+                if (e.metaKey) parts.push('Win');
+                const displayText = document.getElementById('hotkey-display-text');
+                if (displayText) displayText.textContent = parts.join(' + ') + ' + ...';
+                return;
+            }
+
+            const parts = [];
+            if (e.ctrlKey) parts.push('Ctrl');
+            if (e.altKey) parts.push('Alt');
+            if (e.shiftKey) parts.push('Shift');
+            if (e.metaKey) parts.push('Win');
+
+            let keyName = e.key;
+            if (keyName === ' ') keyName = 'Space';
+            else if (keyName === 'Enter') keyName = 'Enter';
+            else if (keyName === 'Tab') keyName = 'Tab';
+            else if (keyName.length === 1) keyName = keyName.toUpperCase();
+
+            // Check if key is a Function key (F1-F12)
+            const isFKey = /^F(1[0-2]|[1-9])$/i.test(keyName);
+
+            // Validation rule: MUST have at least one modifier key unless it is an F-key
+            if (parts.length === 0 && !isFKey) {
+                const statusEl = document.getElementById('hotkey-status-text');
+                const boxEl = document.getElementById('hotkey-recorder-box');
+                if (statusEl) {
+                    statusEl.innerHTML = '<span style="color: #EF5350; font-weight: 600;">⚠️ Shortcut must include a modifier (Ctrl, Alt, Win, or Shift)</span>';
+                }
+                if (boxEl) {
+                    boxEl.classList.remove('shake');
+                    void boxEl.offsetWidth; // trigger reflow
+                    boxEl.classList.add('shake');
+                }
+                return;
+            }
+
+            parts.push(keyName);
+            const hotkeyStr = parts.join('+');
+
+            currentSettings.hotkey = hotkeyStr;
+            updateHotkeyPresetButtons(hotkeyStr);
+            saveCurrentSettings();
+            stopRecordingHotkey();
+
+            const statusEl = document.getElementById('hotkey-status-text');
+            if (statusEl) {
+                statusEl.innerHTML = `<span style="color: #30D158; font-weight: 600;">✓ Successfully saved hotkey: ${escapeHtml(hotkeyStr)}</span>`;
+            }
+            return;
+        }
+
+        // When Settings is open, isolate all keypresses
+        if (isShowingSettings) {
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                hideSettings();
+                return;
+            }
+            if (e.key === 'Backspace') {
+                // If focus is in an input, let native backspace edit it
+                if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) {
+                    return;
+                }
+                // Otherwise prevent default so backspace doesn't bug out into search
+                e.preventDefault();
+                return;
+            }
+        }
+    }, true);
+
     // Keyboard navigation
     searchInput.addEventListener('keydown', (e) => {
+        if (isShowingSettings) return;
+
         const rows = resultsList.querySelectorAll('.result-row:not(.row-exit)');
         const count = rows.length;
 
@@ -2396,8 +3659,10 @@
             e.preventDefault();
             
             const query = searchInput.value;
-            if (query.startsWith('!b ') && query.length > 3) {
-                searchWeb(query.substring(3));
+            const bang = (currentSettings.web_bang_prefix || '!b').trim();
+            const bangWithSpace = bang + ' ';
+            if (query.startsWith(bangWithSpace) && query.length > bangWithSpace.length) {
+                searchWeb(query.substring(bangWithSpace.length));
                 return;
             }
 
@@ -2409,12 +3674,18 @@
                 return;
             }
 
-            // Execute system command directly if selected
+            // Execute settings or system command directly if selected
             const filtered = getFilteredResults();
             const result = filtered[selectedIndex];
-            if (result && result.match_type === 'SystemCommand') {
-                executeSystemCommand(result.metadata.full_path);
-                return;
+            if (result) {
+                if (result.metadata.full_path === '__kelp_settings__' || result.match_type === 'Settings' || (result.metadata.file_type || '').toLowerCase() === 'settings') {
+                    showSettings();
+                    return;
+                }
+                if (result.match_type === 'SystemCommand') {
+                    executeSystemCommand(result.metadata.full_path);
+                    return;
+                }
             }
 
             executeSelected();

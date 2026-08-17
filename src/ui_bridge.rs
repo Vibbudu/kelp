@@ -297,4 +297,27 @@ impl UIBridge {
     pub fn is_learning_ready(&self) -> bool {
         self.learning.is_ready()
     }
+
+    /// Performs a manual full reindexing of given paths, updating memory index and caches.
+    pub fn reindex_blocking(&self, paths: &[String]) -> Result<usize, String> {
+        let indexer = Indexer::new(self._storage.clone(), self.config.clone());
+        let count = indexer.index_paths(paths).map_err(|e| e.to_string())?;
+        if let Ok(new_files) = self._storage.load_all_files() {
+            self.index.rebuild(new_files);
+        }
+        self.cache.clear();
+        Ok(count)
+    }
+
+    /// Clears both in-memory and SQLite learning query history and clears result caches.
+    pub fn clear_learning_cache(&self) -> Result<(), String> {
+        self.learning.clear_cache()?;
+        self.cache.clear();
+        Ok(())
+    }
+
+    /// Updates the in-memory AppConfig reference.
+    pub fn update_config(&mut self, config: crate::config::AppConfig) {
+        self.config = config;
+    }
 }
