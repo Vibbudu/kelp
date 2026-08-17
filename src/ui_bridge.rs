@@ -236,6 +236,22 @@ impl UIBridge {
         // 2. Score and Sort matching results
         self.ranking_engine.rank(&mut results, &query);
 
+        // 2b. Deduplicate applications and shortcuts by normalized name so the UI never renders duplicate apps
+        let mut seen_apps = std::collections::HashSet::new();
+        results.retain(|r| {
+            if r.metadata.file_type == crate::models::FileType::Application || r.metadata.file_type == crate::models::FileType::Shortcut {
+                let name_key = r.metadata.name.to_lowercase().trim().to_string();
+                if seen_apps.contains(&name_key) {
+                    false
+                } else {
+                    seen_apps.insert(name_key);
+                    true
+                }
+            } else {
+                true
+            }
+        });
+
         // 3. Dynamic Quality Filtering based on query length
         let q_len = query.raw.len();
         let threshold = if q_len <= 2 {

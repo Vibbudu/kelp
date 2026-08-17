@@ -37,14 +37,37 @@ impl Indexer {
         if let Some(p) = crate::utilities::get_known_folder(&crate::utilities::FOLDERID_DOWNLOADS) {
             paths.push(p.to_string_lossy().to_string());
         }
+        if let Some(p) = crate::utilities::get_known_folder(&crate::utilities::FOLDERID_MUSIC) {
+            paths.push(p.to_string_lossy().to_string());
+        }
+        if let Some(p) = crate::utilities::get_known_folder(&crate::utilities::FOLDERID_PICTURES) {
+            paths.push(p.to_string_lossy().to_string());
+        }
+        if let Some(p) = crate::utilities::get_known_folder(&crate::utilities::FOLDERID_VIDEOS) {
+            paths.push(p.to_string_lossy().to_string());
+        }
 
-        // Fallbacks if Shell API fails (extremely rare)
-        if paths.is_empty() {
-            paths.push(crate::utilities::expand_env_vars("%ProgramData%\\Microsoft\\Windows\\Start Menu\\Programs"));
-            paths.push(crate::utilities::expand_env_vars("%APPDATA%\\Microsoft\\Windows\\Start Menu\\Programs"));
-            paths.push(crate::utilities::expand_env_vars("%USERPROFILE%\\Desktop"));
-            paths.push(crate::utilities::expand_env_vars("%USERPROFILE%\\Documents"));
-            paths.push(crate::utilities::expand_env_vars("%USERPROFILE%\\Downloads"));
+        // Standard user profile paths as reliable supplements
+        let user_dirs = [
+            "%ProgramData%\\Microsoft\\Windows\\Start Menu\\Programs",
+            "%APPDATA%\\Microsoft\\Windows\\Start Menu\\Programs",
+            "%USERPROFILE%\\Desktop",
+            "%USERPROFILE%\\Documents",
+            "%USERPROFILE%\\Downloads",
+            "%USERPROFILE%\\Music",
+            "%USERPROFILE%\\Pictures",
+            "%USERPROFILE%\\Videos",
+        ];
+
+        for dir in user_dirs {
+            let expanded = crate::utilities::expand_env_vars(dir);
+            let p = std::path::Path::new(&expanded);
+            if p.exists() {
+                let s = p.to_string_lossy().to_string();
+                if !paths.iter().any(|existing| existing.eq_ignore_ascii_case(&s)) {
+                    paths.push(s);
+                }
+            }
         }
         
         paths
@@ -192,18 +215,30 @@ impl Indexer {
             }
         }
 
-        // Clean up stale files in DB that are no longer present on disk
+        // Clean up stale or newly-excluded files in DB
         info!("Running database clean up...");
         if let Ok(db_files) = self.storage.load_all_files() {
             let mut deleted_count = 0;
             for db_file in db_files {
-                // If the file is in a directory we scanned, but we did not see it during this scan:
-                let belongs_to_scanned_dir = paths.iter().any(|p| {
-                    let expanded = expand_env_vars(p);
+                if db_file.full_path.starts_with("shell:") {
+                    continue; // UWP cleanup handled below
+                }
+
+                let p = Path::new(&db_file.full_path);
+                let belongs_to_scanned_dir = paths.iter().any(|raw| {
+                    let expanded = expand_env_vars(raw);
                     db_file.full_path.starts_with(&expanded)
                 });
 
-                if belongs_to_scanned_dir && !seen_paths.contains(&db_file.full_path) {
+                let should_delete = if !p.exists() || self.should_exclude(p) {
+                    true
+                } else if belongs_to_scanned_dir && !seen_paths.contains(&db_file.full_path) {
+                    true
+                } else {
+                    false
+                };
+
+                if should_delete {
                     if let Err(e) = self.storage.delete_file(&db_file.full_path) {
                         warn!("Failed to delete stale file {:?} from DB: {:?}", db_file.full_path, e);
                     } else {
@@ -212,20 +247,47 @@ impl Indexer {
                 }
             }
             if deleted_count > 0 {
-                info!("Cleaned up {} stale entries from database.", deleted_count);
+                info!("Cleaned up {} stale/excluded entries from database.", deleted_count);
             }
         }
 
-        // Discover and index UWP / Microsoft Store apps
+        // Discover, deduplicate, and clean-resync UWP / Microsoft Store apps
         match Self::discover_uwp_apps() {
             Ok(uwp_apps) => {
-                let uwp_count = uwp_apps.len();
-                if !uwp_apps.is_empty() {
-                    if let Err(e) = self.storage.save_files(&uwp_apps) {
+                // Build set of known Application and Shortcut names from filesystem scan
+                let existing_app_names: HashSet<String> = if let Ok(db_files) = self.storage.load_all_files() {
+                    db_files
+                        .iter()
+                        .filter(|f| (f.file_type == FileType::Application || f.file_type == FileType::Shortcut) && !f.full_path.starts_with("shell:"))
+                        .map(|f| f.name.to_lowercase().trim().to_string())
+                        .collect()
+                } else {
+                    HashSet::new()
+                };
+
+                let deduplicated: Vec<FileMetadata> = uwp_apps
+                    .into_iter()
+                    .filter(|app| {
+                        let name_lower = app.name.to_lowercase().trim().to_string();
+                        if existing_app_names.contains(&name_lower) {
+                            info!("Skipping duplicate UWP app '{}' (already found via filesystem)", app.name);
+                            false
+                        } else {
+                            true
+                        }
+                    })
+                    .collect();
+
+                // Cleanly wipe all old UWP records and insert deduplicated set
+                let _ = self.storage.delete_all_uwp_apps();
+
+                let uwp_count = deduplicated.len();
+                if !deduplicated.is_empty() {
+                    if let Err(e) = self.storage.save_files(&deduplicated) {
                         warn!("Failed to save UWP apps to DB: {:?}", e);
                     } else {
                         total_indexed += uwp_count;
-                        info!("Discovered and indexed {} UWP/Store apps.", uwp_count);
+                        info!("Discovered and indexed {} UWP/Store apps ({} duplicates skipped).", uwp_count, existing_app_names.len());
                     }
                 }
             }
@@ -294,56 +356,35 @@ impl Indexer {
 
     /// Exclude typical noisy development or hidden system paths
     fn should_exclude(&self, path: &Path) -> bool {
-        let path_str = path.to_string_lossy();
+        crate::utilities::should_exclude_path(path, &self.config.supported_extensions)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_legacy_junction_exclusion() {
+        let exts = vec!["exe".to_string(), "pdf".to_string(), "txt".to_string()];
         
-        // 1. Exclude directories matching these patterns
-        let exclusions = [
-            "\\node_modules\\",
-            "\\.git\\",
-            "\\target\\",
-            "\\AppData\\Local\\Temp",
-            "\\AppData\\Roaming\\npm-cache",
-            "\\.cargo\\",
-            "\\.rustup\\",
-            "\\$RECYCLE.BIN",
-            "\\System Volume Information",
-            "\\Local Settings\\Temporary Internet Files",
-            "\\Windows\\WinSxS",
-            "\\Windows\\System32",
-        ];
+        // Legacy Windows junction points in Documents MUST be excluded
+        assert!(crate::utilities::should_exclude_path(Path::new("C:\\Users\\user\\Documents\\My Music"), &exts));
+        assert!(crate::utilities::should_exclude_path(Path::new("C:\\Users\\user\\Documents\\My Pictures"), &exts));
+        assert!(crate::utilities::should_exclude_path(Path::new("C:\\Users\\user\\Documents\\My Videos"), &exts));
+        assert!(crate::utilities::should_exclude_path(Path::new("C:\\Users\\user\\My Documents"), &exts));
+        assert!(crate::utilities::should_exclude_path(Path::new("C:\\Users\\user\\Application Data"), &exts));
+        assert!(crate::utilities::should_exclude_path(Path::new("C:\\Users\\user\\Local Settings"), &exts));
+        
+        // Noisy folders MUST be excluded
+        assert!(crate::utilities::should_exclude_path(Path::new("C:\\project\\node_modules\\pkg"), &exts));
+        assert!(crate::utilities::should_exclude_path(Path::new("C:\\project\\.git\\objects"), &exts));
+        assert!(crate::utilities::should_exclude_path(Path::new("C:\\project\\target\\debug"), &exts));
+    }
 
-        for excl in &exclusions {
-            if path_str.contains(excl) {
-                return true;
-            }
-        }
-
-        // 2. Filter out files whose extensions are NOT in the supported whitelist
-        let is_dir = path.is_dir();
-        if !is_dir {
-            if let Some(ext) = path.extension() {
-                let ext_str = ext.to_string_lossy().to_lowercase();
-                if !self.config.supported_extensions.contains(&ext_str) {
-                    return true;
-                }
-            } else {
-                return true; // Exclude files with no extensions
-            }
-        }
-
-        // 3. Filter out hidden system files (check attributes on Windows)
-        #[cfg(target_os = "windows")]
-        {
-            use std::os::windows::fs::MetadataExt;
-            if let Ok(metadata) = path.metadata() {
-                let attributes = metadata.file_attributes();
-                // 0x2 is FILE_ATTRIBUTE_HIDDEN, 0x4 is FILE_ATTRIBUTE_SYSTEM
-                if (attributes & 0x2) != 0 || (attributes & 0x4) != 0 {
-                    return true;
-                }
-            }
-        }
-
-        false
+    #[test]
+    fn test_check_music_folder() {
+        let paths = Indexer::default_windows_paths();
+        assert!(paths.iter().any(|p| p.to_lowercase().ends_with("\\music")));
     }
 }

@@ -164,6 +164,13 @@ impl Storage {
         Ok(())
     }
 
+    /// Deletes all UWP / Store application entries from the database.
+    pub fn delete_all_uwp_apps(&self) -> Result<()> {
+        let conn = self.get_conn();
+        conn.execute("DELETE FROM files WHERE full_path LIKE 'shell:AppsFolder%'", [])?;
+        Ok(())
+    }
+
     /// Loads all file metadata from the database into memory.
     pub fn load_all_files(&self) -> Result<Vec<FileMetadata>> {
         let conn = self.get_conn();

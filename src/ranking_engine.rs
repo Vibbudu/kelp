@@ -155,7 +155,8 @@ impl RankingEngine {
 mod tests {
     use super::*;
     use crate::models::{FileMetadata, FileType};
-    use crate::search::{parse_query, match_file};
+    use crate::query_parser::parse_query;
+    use crate::search::match_file;
     use crate::learning::LearningEngine;
     use crate::storage::Storage;
 

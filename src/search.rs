@@ -1,32 +1,5 @@
 use crate::models::{FileMetadata, SearchQuery, SearchResult};
 
-/// Parses a raw search string into a structured `SearchQuery`.
-///
-/// Example:
-/// - ".pdf report" -> SearchQuery { raw: ".pdf report", extension_filter: Some("pdf"), terms: ["report"] }
-/// - "vsc" -> SearchQuery { raw: "vsc", extension_filter: None, terms: ["vsc"] }
-pub fn parse_query(raw: &str) -> SearchQuery {
-    let mut extension_filter = None;
-    let mut terms = Vec::new();
-
-    for word in raw.split_whitespace() {
-        if word.starts_with('.') && word.len() > 1 {
-            // Treat as extension filter (strip the leading dot)
-            extension_filter = Some(word[1..].to_lowercase());
-        } else {
-            terms.push(word.to_string());
-        }
-    }
-
-    let term_string = terms.join(" ");
-
-    SearchQuery {
-        raw: raw.trim().to_string(),
-        extension_filter,
-        terms,
-        term_string,
-    }
-}
 
 /// Matches a single file against the search query, returning a `SearchResult` if it matches.
 pub fn match_file(file: &FileMetadata, query: &SearchQuery) -> Option<SearchResult> {
@@ -483,6 +456,7 @@ fn levenshtein_distance(s1: &str, s2: &str) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::query_parser::parse_query;
 
     #[test]
     fn test_typo_match() {

@@ -218,11 +218,19 @@ async fn main() {
     let watch_paths = engine::indexer::Indexer::default_windows_paths();
 
     // 6. Initialize search engine bridge
-    let engine = Arc::new(
-        UIBridge::initialize(&db_path, &watch_paths)
-            .await
-            .expect("Failed to initialize Search Engine Bridge")
-    );
+    info!("[Startup] Phase 6: Initializing search engine bridge...");
+    let engine = match UIBridge::initialize(&db_path, &watch_paths).await {
+        Ok(e) => Arc::new(e),
+        Err(e) => {
+            error!("FATAL: Failed to initialize Search Engine Bridge: {}", e);
+            eprintln!("Kelp failed to start: {}", e);
+            // Write error to a crash file that can be inspected
+            let crash_path = engine::utilities::get_app_data_dir().join("logs").join("startup_crash.log");
+            let _ = std::fs::create_dir_all(crash_path.parent().unwrap_or(std::path::Path::new(".")));
+            let _ = std::fs::write(&crash_path, format!("Startup failed: {}\nTimestamp: {:?}", e, std::time::SystemTime::now()));
+            return;
+        }
+    };
 
     // 7. Create Tao Event Loop
     let event_loop = EventLoopBuilder::<UserEvent>::with_user_event().build();
@@ -279,7 +287,14 @@ async fn main() {
         builder = builder.with_undecorated_shadow(false).with_skip_taskbar(true);
     }
 
-    let window = builder.build(&event_loop).unwrap();
+    let window = match builder.build(&event_loop) {
+        Ok(w) => w,
+        Err(e) => {
+            error!("FATAL: Failed to create application window: {:?}", e);
+            eprintln!("Kelp failed to create window: {:?}", e);
+            return;
+        }
+    };
 
     // Center window horizontally and place at top third of screen
     if let Some(monitor) = window.current_monitor() {
@@ -304,12 +319,19 @@ async fn main() {
     let show_item_id = show_item.id().clone();
     let exit_item_id = exit_item.id().clone();
 
-    let tray_icon = TrayIconBuilder::new()
+    let tray_icon = match TrayIconBuilder::new()
         .with_menu(Box::new(tray_menu))
         .with_tooltip("Kelp Search")
         .with_icon(load_icon_from_memory())
         .build()
-        .unwrap();
+    {
+        Ok(t) => t,
+        Err(e) => {
+            error!("FATAL: Failed to create system tray icon: {:?}", e);
+            eprintln!("Kelp failed to create tray icon: {:?}", e);
+            return;
+        }
+    };
 
     let tray_proxy = event_loop_proxy.clone();
     TrayIconEvent::set_event_handler(Some(move |event| {
@@ -324,7 +346,7 @@ async fn main() {
     // 10. Attach transparent Wry WebView hosting the embedded HTML client
     let html_content = include_str!("ui.html");
 
-    let webview = WebViewBuilder::new(&window)
+    let webview = match WebViewBuilder::new(&window)
         .with_transparent(true)
         .with_html(html_content)
         .with_ipc_handler({
@@ -355,7 +377,14 @@ async fn main() {
             }
         })
         .build()
-        .unwrap();
+    {
+        Ok(w) => w,
+        Err(e) => {
+            error!("FATAL: Failed to create WebView: {:?}", e);
+            eprintln!("Kelp failed to create WebView: {:?}", e);
+            return;
+        }
+    };
 
     // 10. Run Event Loop
     let _keep_alive = (hotkey_manager, tray_icon);
@@ -527,7 +556,22 @@ async fn main() {
                             let dir = match std::fs::read_dir(&path) {
                                 Ok(d) => d,
                                 Err(e) => {
-                                    warn!("Failed to read directory '{}': {}", path, e);
+                                    // Permission denied or other access error:
+                                    // Fall back to opening the folder in Windows Explorer instead
+                                    // of showing empty results. This handles protected user folders
+                                    // like Music, Pictures, Videos, and OneDrive-redirected paths.
+                                    warn!("Cannot enumerate directory '{}': {}. Opening in Explorer as fallback.", path, e);
+                                    let path_w = windows::core::HSTRING::from(path.as_str());
+                                    unsafe {
+                                        let _ = windows::Win32::UI::Shell::ShellExecuteW(
+                                            windows::Win32::Foundation::HWND(std::ptr::null_mut()),
+                                            windows::core::PCWSTR(std::ptr::null()),
+                                            windows::core::PCWSTR(path_w.as_ptr()),
+                                            windows::core::PCWSTR(std::ptr::null()),
+                                            windows::core::PCWSTR(std::ptr::null()),
+                                            windows::Win32::UI::WindowsAndMessaging::SW_SHOW,
+                                        );
+                                    }
                                     let _ = proxy.send_event(UserEvent::BrowseFolderCompleted {
                                         results_json: "[]".to_string(),
                                     });

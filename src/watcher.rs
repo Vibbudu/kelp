@@ -77,52 +77,7 @@ impl FileWatcher {
     }
 }
 
-/// Exclude typical noisy development or hidden system paths (duplicate logic for watcher events)
+/// Exclude typical noisy development or hidden system paths (delegates to shared utility)
 fn should_exclude_path(path: &Path, config: &crate::config::AppConfig) -> bool {
-    let path_str = path.to_string_lossy();
-    let exclusions = [
-        "\\node_modules\\",
-        "\\.git\\",
-        "\\target\\",
-        "\\AppData\\Local\\Temp",
-        "\\AppData\\Roaming\\npm-cache",
-        "\\.cargo\\",
-        "\\.rustup\\",
-        "\\$RECYCLE.BIN",
-        "\\System Volume Information",
-        "\\Local Settings\\Temporary Internet Files",
-        "\\Windows\\WinSxS",
-        "\\Windows\\System32",
-    ];
-
-    for excl in &exclusions {
-        if path_str.contains(excl) {
-            return true;
-        }
-    }
-
-    let is_dir = path.is_dir();
-    if !is_dir {
-        if let Some(ext) = path.extension() {
-            let ext_str = ext.to_string_lossy().to_lowercase();
-            if !config.supported_extensions.contains(&ext_str) {
-                return true;
-            }
-        } else {
-            return true; // Exclude files with no extension
-        }
-    }
-
-    #[cfg(target_os = "windows")]
-    {
-        use std::os::windows::fs::MetadataExt;
-        if let Ok(metadata) = path.metadata() {
-            let attributes = metadata.file_attributes();
-            if (attributes & 0x2) != 0 || (attributes & 0x4) != 0 {
-                return true;
-            }
-        }
-    }
-
-    false
+    crate::utilities::should_exclude_path(path, &config.supported_extensions)
 }

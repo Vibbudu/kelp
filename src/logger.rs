@@ -153,8 +153,24 @@ fn format_timestamp(secs: u64) -> String {
             break;
         }
     }
+    let days_in_month = if (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0) {
+        [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+    } else {
+        [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+    };
+    let mut month = 0;
+    for (i, &days) in days_in_month.iter().enumerate() {
+        if day_count < days {
+            month = i + 1;
+            break;
+        }
+        day_count -= days;
+    }
+    if month == 0 {
+        month = 12;
+    }
     
-    format!("{:04}-{:02}-{:02} {:02}:{:02}:{:02}", year, 1, day_count + 1, hour, minute, second)
+    format!("{:04}-{:02}-{:02} {:02}:{:02}:{:02}", year, month, day_count + 1, hour, minute, second)
 }
 
 /// Global Panic Handler Setup
