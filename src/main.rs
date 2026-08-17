@@ -951,6 +951,10 @@ fn launch_url_with_engine(query: &str, engine_name: &str) {
     if query.trim().is_empty() {
         return;
     }
+    if query.starts_with("http://") || query.starts_with("https://") {
+        launch_file(query);
+        return;
+    }
     let encoded = query.replace(' ', "+");
     let url = match engine_name.to_lowercase().as_str() {
         "duckduckgo" | "ddg" => format!("https://duckduckgo.com/?q={}", encoded),

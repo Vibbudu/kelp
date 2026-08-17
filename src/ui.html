@@ -1396,6 +1396,147 @@
             font-style: italic;
         }
 
+        /* Authentic Arc / Browser Company Member Card */
+        .arc-card-wrapper {
+            background: linear-gradient(145deg, #DE5338 0%, #C43B22 100%);
+            border-radius: 16px;
+            padding: 14px;
+            margin-bottom: 16px;
+            box-shadow: 0 8px 24px rgba(222, 83, 56, 0.22);
+            display: flex;
+            justify-content: center;
+        }
+
+        .arc-member-card {
+            background: #FAF7EE;
+            border-radius: 12px;
+            padding: 14px 16px;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+            color: #2D2725;
+            position: relative;
+        }
+
+        .arc-card-artwork {
+            width: 100%;
+            height: 64px;
+            background: linear-gradient(135deg, #DE4A2B 0%, #E86B43 60%, #C7381A 100%);
+            border-radius: 48px 48px 0 48px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .arc-card-artwork::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle at 70% 30%, rgba(255, 255, 255, 0.28) 0%, transparent 60%);
+        }
+
+        .arc-card-header {
+            display: flex;
+            flex-direction: column;
+            gap: 1px;
+        }
+
+        .arc-card-name {
+            font-size: 17px;
+            font-weight: 800;
+            color: #DE4A2B;
+            letter-spacing: -0.2px;
+            font-family: 'Inter', -apple-system, sans-serif;
+            line-height: 1.2;
+        }
+
+        .arc-card-title {
+            font-size: 10.5px;
+            font-weight: 600;
+            color: #DE4A2B;
+            letter-spacing: 0.6px;
+            text-transform: uppercase;
+            font-family: 'JetBrains Mono', 'SF Mono', monospace, sans-serif;
+            opacity: 0.85;
+        }
+
+        .arc-card-message {
+            font-size: 12px;
+            line-height: 1.5;
+            color: #4A3E3B;
+            font-weight: 450;
+            margin: 0;
+        }
+
+        .arc-card-footer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-top: 2px;
+            padding-top: 9px;
+            border-top: 1px solid rgba(222, 74, 43, 0.15);
+        }
+
+        .arc-stamp-badge {
+            display: inline-flex;
+            align-items: center;
+            height: 22px;
+            border: 1px solid #DE4A2B;
+            border-radius: 4px;
+            overflow: hidden;
+            font-size: 9.5px;
+            font-weight: 700;
+            color: #DE4A2B;
+            font-family: 'JetBrains Mono', 'SF Mono', monospace;
+            text-transform: uppercase;
+        }
+
+        .arc-stamp-part {
+            padding: 0 5px;
+            display: flex;
+            align-items: center;
+            height: 100%;
+        }
+
+        .arc-stamp-hatch {
+            width: 12px;
+            height: 100%;
+            border-left: 1px solid #DE4A2B;
+            border-right: 1px solid #DE4A2B;
+            background-image: repeating-linear-gradient(45deg, #DE4A2B, #DE4A2B 1px, transparent 1px, transparent 3px);
+            background-color: rgba(222, 74, 43, 0.08);
+        }
+
+        .arc-star-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 4px 11px;
+            border-radius: 6px;
+            background: #DE4A2B;
+            color: #FAF7EE;
+            border: 1px solid #C43B1D;
+            font-family: 'JetBrains Mono', monospace, sans-serif;
+            font-size: 10.5px;
+            font-weight: 700;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: all 120ms ease;
+            box-shadow: 0 2px 6px rgba(222, 74, 43, 0.25);
+        }
+
+        .arc-star-btn:hover {
+            background: #C43B1D;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 10px rgba(222, 74, 43, 0.35);
+        }
+
+        .arc-star-btn .material-symbols-outlined {
+            font-size: 13px;
+            font-variation-settings: 'FILL' 1;
+        }
+
         .settings-gear-btn {
             display: flex;
             align-items: center;
@@ -1719,6 +1860,31 @@
 
                 <!-- 5. About Section -->
                 <div class="settings-section" id="sec-about">
+                    <!-- Arc Browser Company Member Card (Authentic Design) -->
+                    <div class="arc-card-wrapper">
+                        <div class="arc-member-card">
+                            <div class="arc-card-artwork"></div>
+                            <div class="arc-card-header">
+                                <div class="arc-card-name">vibbudu</div>
+                                <div class="arc-card-title">creator of kelp</div>
+                            </div>
+                            <p class="arc-card-message">
+                                hey, thanks so much for using kelp! i built this to make searching on windows feel super fast, clean and effortless. if kelp saves you time or makes your day a bit easier, please drop a star on github — it really helps the project grow and means the world to me.
+                            </p>
+                            <div class="arc-card-footer">
+                                <div class="arc-stamp-badge">
+                                    <span class="arc-stamp-part">kelp</span>
+                                    <span class="arc-stamp-hatch"></span>
+                                    <span class="arc-stamp-part">2026</span>
+                                </div>
+                                <button class="arc-star-btn" onclick="openExternalUrl('https://github.com/Vibbudu/kelp')">
+                                    <span class="material-symbols-outlined" aria-hidden="true">star</span>
+                                    <span>star on github</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="settings-section-title">System Diagnostics</div>
                     <div class="settings-group">
                         <div class="settings-row">
@@ -3396,6 +3562,10 @@ launcher.classList.add('launcher-exit');
             statusEl.textContent = '✓ Search learning history and frequency ranking cleared.';
         }
     };
+
+    function openExternalUrl(url) {
+        window.ipc.postMessage(JSON.stringify({ type: 'search_web', query: url }));
+    }
 
     // ===== Trigger Resize (immediate, no debounce) =====
     let resizeTimeout = null;
