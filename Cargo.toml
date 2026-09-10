@@ -1,6 +1,6 @@
 [package]
 name = "kelp"
-version = "0.1.0-alpha"
+version = "1.0.0"
 edition = "2021"
 
 [lib]
@@ -36,8 +36,8 @@ tray-icon = "0.24"
 tracing = "0.1"
 tracing-subscriber = "0.3"
 
-# Image processing for Icons
-image = { version = "0.24", default-features = false, features = ["png"] }
+# Image processing for Icons and Previews
+image = { version = "0.24", default-features = false, features = ["png", "jpeg", "gif", "bmp"] }
 
 # Windows API integrations (specifically for UI, Shell, COM and Foundation)
 [dependencies.windows]

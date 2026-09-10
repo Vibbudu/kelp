@@ -16,6 +16,8 @@ pub mod utilities;
 pub mod watcher;
 pub mod settings;
 pub mod update;
+pub mod process;
+pub mod fs_ops;
 
 // Re-export major structs for convenience
 pub use crate::models::{FileMetadata, FileType, SearchQuery, SearchResult};

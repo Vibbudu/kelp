@@ -4,6 +4,7 @@ use tracing::warn;
 
 struct MemoryIndexInner {
     files: Vec<FileMetadata>,
+    lowercase_names: Vec<String>,
     // Indices into `files` sorted by lowercase file name
     sorted_by_name: Vec<usize>,
 }
@@ -12,21 +13,21 @@ impl MemoryIndexInner {
     fn new(files: Vec<FileMetadata>) -> Self {
         let mut inner = Self {
             files,
+            lowercase_names: Vec::new(),
             sorted_by_name: Vec::new(),
         };
         inner.rebuild_index();
         inner
     }
 
-    /// Rebuilds the sorted index list.
+    /// Rebuilds the pre-lowercased names and sorted index list.
     fn rebuild_index(&mut self) {
+        self.lowercase_names = self.files.iter().map(|f| f.name.to_lowercase()).collect();
         let mut indices: Vec<usize> = (0..self.files.len()).collect();
-        // Sort indices based on lowercase filenames to enable binary search prefix lookups
+        let l_names = &self.lowercase_names;
+        // Sort indices based on pre-lowercased names with zero allocations during comparison
         indices.sort_unstable_by(|&a, &b| {
-            self.files[a]
-                .name
-                .to_lowercase()
-                .cmp(&self.files[b].name.to_lowercase())
+            l_names[a].cmp(&l_names[b])
         });
         self.sorted_by_name = indices;
     }
@@ -56,7 +57,7 @@ impl MemoryIndex {
         *inner = MemoryIndexInner::new(files);
     }
 
-    /// Incremental add or update.
+    /// Incremental add or update for a single file.
     pub fn add_or_update(&self, file: FileMetadata) {
         let mut inner = match self.inner.write() {
             Ok(guard) => guard,
@@ -73,7 +74,29 @@ impl MemoryIndex {
         inner.rebuild_index();
     }
 
-    /// Incremental remove.
+    /// Batch add or update for multiple files in a single pass.
+    pub fn add_or_update_batch(&self, files: Vec<FileMetadata>) {
+        if files.is_empty() {
+            return;
+        }
+        let mut inner = match self.inner.write() {
+            Ok(guard) => guard,
+            Err(poisoned) => {
+                warn!("MemoryIndex write lock poisoned on add_or_update_batch(), recovering");
+                poisoned.into_inner()
+            }
+        };
+        for file in files {
+            if let Some(pos) = inner.files.iter().position(|f| f.full_path == file.full_path) {
+                inner.files[pos] = file;
+            } else {
+                inner.files.push(file);
+            }
+        }
+        inner.rebuild_index();
+    }
+
+    /// Incremental remove for a single file.
     pub fn remove(&self, path: &str) {
         let mut inner = match self.inner.write() {
             Ok(guard) => guard,
@@ -84,6 +107,25 @@ impl MemoryIndex {
         };
         let original_len = inner.files.len();
         inner.files.retain(|f| f.full_path != path);
+        if inner.files.len() != original_len {
+            inner.rebuild_index();
+        }
+    }
+
+    /// Batch remove for multiple paths.
+    pub fn remove_batch(&self, paths: &[String]) {
+        if paths.is_empty() {
+            return;
+        }
+        let mut inner = match self.inner.write() {
+            Ok(guard) => guard,
+            Err(poisoned) => {
+                warn!("MemoryIndex write lock poisoned on remove_batch(), recovering");
+                poisoned.into_inner()
+            }
+        };
+        let original_len = inner.files.len();
+        inner.files.retain(|f| !paths.iter().any(|p| f.full_path == *p));
         if inner.files.len() != original_len {
             inner.rebuild_index();
         }
@@ -100,6 +142,25 @@ impl MemoryIndex {
         };
         let original_len = inner.files.len();
         inner.files.retain(|f| !f.full_path.starts_with(prefix));
+        if inner.files.len() != original_len {
+            inner.rebuild_index();
+        }
+    }
+
+    /// Batch prefix remove for multiple folders.
+    pub fn remove_prefix_batch(&self, prefixes: &[String]) {
+        if prefixes.is_empty() {
+            return;
+        }
+        let mut inner = match self.inner.write() {
+            Ok(guard) => guard,
+            Err(poisoned) => {
+                warn!("MemoryIndex write lock poisoned on remove_prefix_batch(), recovering");
+                poisoned.into_inner()
+            }
+        };
+        let original_len = inner.files.len();
+        inner.files.retain(|f| !prefixes.iter().any(|prefix| f.full_path.starts_with(prefix)));
         if inner.files.len() != original_len {
             inner.rebuild_index();
         }
@@ -166,9 +227,9 @@ impl MemoryIndex {
             return Vec::new();
         }
 
-        // Binary search to find the lower bound of matching prefixes
+        // Binary search to find the lower bound of matching prefixes using zero-alloc precomputed lowercase names
         let start_idx = inner.sorted_by_name.partition_point(|&i| {
-            inner.files[i].name.to_lowercase() < prefix_lower
+            inner.lowercase_names[i] < prefix_lower
         });
 
         let mut results = Vec::new();
@@ -177,9 +238,8 @@ impl MemoryIndex {
         // Iterate forward from the lower bound until prefixes diverge
         while idx < inner.sorted_by_name.len() {
             let file_idx = inner.sorted_by_name[idx];
-            let file = &inner.files[file_idx];
-            if file.name.to_lowercase().starts_with(&prefix_lower) {
-                results.push(file.clone());
+            if inner.lowercase_names[file_idx].starts_with(&prefix_lower) {
+                results.push(inner.files[file_idx].clone());
                 idx += 1;
             } else {
                 break;
@@ -238,5 +298,22 @@ mod tests {
         // Non-matching
         let res4 = index.search_prefix("xyz");
         assert!(res4.is_empty());
+    }
+
+    #[test]
+    fn test_memory_index_batch_operations() {
+        let index = MemoryIndex::new(vec![mock_file("File1"), mock_file("File2")]);
+        assert_eq!(index.len(), 2);
+
+        // Batch add
+        index.add_or_update_batch(vec![mock_file("File3"), mock_file("File4")]);
+        assert_eq!(index.len(), 4);
+
+        // Batch remove by prefix
+        index.remove_prefix_batch(&["C:\\File1".to_string(), "C:\\File3".to_string()]);
+        assert_eq!(index.len(), 2);
+        let remaining = index.get_all();
+        assert!(remaining.iter().any(|f| f.name == "File2"));
+        assert!(remaining.iter().any(|f| f.name == "File4"));
     }
 }

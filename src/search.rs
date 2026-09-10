@@ -19,9 +19,29 @@ pub fn match_file(file: &FileMetadata, query: &SearchQuery) -> Option<SearchResu
         }
     }
 
-    // If query has no terms (but had extension filter that passed), we already returned.
+    // 1b. Check semantic category filter if present (e.g. "image", "pdf", "music", "excel")
+    if let Some(ref semantic_exts) = query.semantic_extensions {
+        let file_ext = file.extension.to_lowercase();
+        let matches_cat = semantic_exts.iter().any(|ext| ext == &file_ext);
+        if query.terms.is_empty() {
+            if matches_cat {
+                return Some(SearchResult {
+                    metadata: file.clone(),
+                    score: 0.95,
+                    match_type: "SemanticCategory".to_string(),
+                    icon_base64: None,
+                });
+            } else {
+                return None;
+            }
+        } else if !matches_cat {
+            return None;
+        }
+    }
+
+    // If query has no terms (but had filter that passed), we already returned.
     // If query is empty altogether, no match.
-    if query.terms.is_empty() && query.extension_filter.is_none() {
+    if query.terms.is_empty() && query.extension_filter.is_none() && query.semantic_extensions.is_none() {
         return None;
     }
 
@@ -276,6 +296,23 @@ fn is_camel_case_match(target: &str, query: &str) -> bool {
 ///
 /// Returns Some(score) if all query characters are found in order, otherwise None.
 fn compute_fuzzy_match(target: &str, query: &str) -> Option<f64> {
+    // 1. Fast bitmask pre-filter: reject immediately if target lacks any query alphanumeric character
+    let mut q_mask: u64 = 0;
+    for b in query.bytes() {
+        if b.is_ascii_alphanumeric() {
+            q_mask |= 1u64 << ((b.to_ascii_lowercase() - b'0') % 64);
+        }
+    }
+    let mut t_mask: u64 = 0;
+    for b in target.bytes() {
+        if b.is_ascii_alphanumeric() {
+            t_mask |= 1u64 << ((b.to_ascii_lowercase() - b'0') % 64);
+        }
+    }
+    if (q_mask & t_mask) != q_mask {
+        return None;
+    }
+
     let target_chars: Vec<char> = target.chars().collect();
     let query_chars: Vec<char> = query.chars().collect();
 
@@ -297,23 +334,11 @@ fn compute_fuzzy_match(target: &str, query: &str) -> Option<f64> {
         return None; // Characters not found in sequence
     }
 
-    // DP matrix to find the optimal matching path.
-    // dp[q][t] represents the maximum alignment score of query[0..q] with target[0..t]
-    // where query[q] is matched exactly at target[t].
-    //
-    // Scoring rules:
-    // - Base match: +5.0 points
-    // - Case match: +2.0 points (e.g. 'A' matching 'A')
-    // - Start of word / boundary match: +10.0 points
-    // - Camel case boundary: +8.0 points
-    // - Consecutive bonus: +15.0 points if the previous query char matched the previous target char
-    // - Gap penalty: -1.0 per skipped target character in between matches
-    // - Target length penalty: -0.05 per character in the target (favors shorter targets)
-    
     let q_len = query_chars.len();
     let t_len = target_chars.len();
 
-    let mut dp = vec![vec![f64::MIN; t_len]; q_len];
+    // Reusable single flat vector allocation (O(1) allocation instead of O(q_len) vector-of-vectors)
+    let mut dp = vec![f64::MIN; q_len * t_len];
 
     // Initialize first row (matching query[0])
     for j in 0..t_len {
@@ -337,23 +362,28 @@ fn compute_fuzzy_match(target: &str, query: &str) -> Option<f64> {
             // Initial gap penalty from start of target
             score -= (j as f64) * 0.5;
 
-            dp[0][j] = score;
+            dp[j] = score;
         }
     }
 
     // Populate DP matrix
     for i in 1..q_len {
+        let prev_row_offset = (i - 1) * t_len;
+        let curr_row_offset = i * t_len;
+        let q_char = query_chars[i];
+        let q_lower = q_char.to_ascii_lowercase();
+
         for j in 0..t_len {
-            if query_chars[i].to_ascii_lowercase() == target_chars[j].to_ascii_lowercase() {
-                // Find the best match for query[i-1] at target[k] where k < j
+            if q_lower == target_chars[j].to_ascii_lowercase() {
                 let mut best_prev_score = f64::MIN;
 
                 for k in 0..j {
-                    if dp[i - 1][k] > f64::MIN {
-                        let mut score = dp[i - 1][k] + 5.0; // Match points
+                    let prev_score = dp[prev_row_offset + k];
+                    if prev_score > f64::MIN {
+                        let mut score = prev_score + 5.0; // Match points
                         
                         // Case match
-                        if query_chars[i] == target_chars[j] {
+                        if q_char == target_chars[j] {
                             score += 2.0;
                         }
 
@@ -378,16 +408,18 @@ fn compute_fuzzy_match(target: &str, query: &str) -> Option<f64> {
                         }
                     }
                 }
-                dp[i][j] = best_prev_score;
+                dp[curr_row_offset + j] = best_prev_score;
             }
         }
     }
 
     // Find the max score in the last row
+    let last_row_offset = (q_len - 1) * t_len;
     let mut max_raw_score = f64::MIN;
     for j in 0..t_len {
-        if dp[q_len - 1][j] > max_raw_score {
-            max_raw_score = dp[q_len - 1][j];
+        let val = dp[last_row_offset + j];
+        if val > max_raw_score {
+            max_raw_score = val;
         }
     }
 
@@ -549,5 +581,44 @@ mod tests {
                 q_str
             );
         }
+    }
+
+    #[test]
+    fn test_semantic_category_match() {
+        let img_file = FileMetadata {
+            id: None,
+            name: "vacation.png".to_string(),
+            extension: "png".to_string(),
+            parent_folder: "C:\\Photos".to_string(),
+            full_path: "C:\\Photos\\vacation.png".to_string(),
+            modified_date: 0,
+            size: 1024,
+            file_type: crate::models::FileType::File,
+        };
+
+        let pdf_file = FileMetadata {
+            id: None,
+            name: "tax_return.pdf".to_string(),
+            extension: "pdf".to_string(),
+            parent_folder: "C:\\Docs".to_string(),
+            full_path: "C:\\Docs\\tax_return.pdf".to_string(),
+            modified_date: 0,
+            size: 2048,
+            file_type: crate::models::FileType::File,
+        };
+
+        // Query "images" should match img_file and not pdf_file
+        let q_img = parse_query("images");
+        assert!(match_file(&img_file, &q_img).is_some());
+        assert!(match_file(&pdf_file, &q_img).is_none());
+
+        // Query "pdf" should match pdf_file
+        let q_pdf = parse_query("pdf");
+        assert!(match_file(&pdf_file, &q_pdf).is_some());
+        assert!(match_file(&img_file, &q_pdf).is_none());
+
+        // Compound query "tax pdf" should match tax_return.pdf
+        let q_compound = parse_query("tax pdf");
+        assert!(match_file(&pdf_file, &q_compound).is_some());
     }
 }

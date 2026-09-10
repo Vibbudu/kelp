@@ -1,7 +1,8 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use engine::UIBridge;
+use engine::{UIBridge, SearchResult};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 use tracing::{info, error, warn};
 
 use tao::{
@@ -39,7 +40,7 @@ enum IpcMessage {
     #[serde(rename = "ready")]
     Ready,
     #[serde(rename = "search")]
-    Search { query: String },
+    Search { query: String, #[serde(default)] query_id: u64 },
     #[serde(rename = "select")]
     Select { query: String, path: String },
     #[serde(rename = "search_web")]
@@ -63,19 +64,29 @@ enum IpcMessage {
     #[serde(rename = "save_settings")]
     SaveSettings { config: Box<engine::config::AppConfig> },
     #[serde(rename = "pick_folder")]
-    PickFolder,
+    PickFolder { #[serde(default)] context: String },
+    #[serde(rename = "add_exclusion")]
+    AddExclusion { path: String },
+    #[serde(rename = "remove_exclusion")]
+    RemoveExclusion { path: String },
     #[serde(rename = "reindex_now")]
     ReindexNow,
     #[serde(rename = "clear_cache")]
     ClearCache,
+    #[serde(rename = "get_preview")]
+    GetPreview { path: String },
+    #[serde(rename = "move_paths")]
+    MovePaths { sources: Vec<String>, destination: String },
+    #[serde(rename = "kill_process")]
+    KillProcess { pid: u32, name: String },
 }
 
 #[derive(Debug)]
 enum UserEvent {
     Ready,
     GlobalHotkey(global_hotkey::GlobalHotKeyEvent),
-    SearchRequest { query: String },
-    SearchCompleted { results_json: String, debug_json: Option<String> },
+    SearchRequest { query: String, query_id: u64 },
+    SearchCompleted { query_id: u64, results_json: String, debug_json: Option<String> },
     SelectRequest { query: String, path: String },
     SearchWeb { query: String },
     BrowseFolderRequest { path: String },
@@ -88,12 +99,20 @@ enum UserEvent {
     HideWindow,
     GetSettingsRequest,
     SaveSettingsRequest { config: Box<engine::config::AppConfig> },
-    PickFolderRequest,
-    FolderPicked { path: Option<String> },
+    PickFolderRequest { context: String },
+    FolderPicked { path: Option<String>, context: String },
+    AddExclusionRequest { path: String },
+    RemoveExclusionRequest { path: String },
     ReindexRequest,
     ReindexCompleted { count: usize },
     ClearCacheRequest,
     ClearCacheCompleted,
+    GetPreviewRequest { path: String },
+    PreviewReady { path: String, thumbnail_base64: Option<String> },
+    MovePathsRequest { sources: Vec<String>, destination: String },
+    MoveCompleted { moved_count: usize, error_msg: Option<String> },
+    KillProcessRequest { pid: u32, name: String },
+    ProcessKilled { success: bool, message: String },
     TrayIcon(tray_icon::TrayIconEvent),
     MenuEvent(tray_icon::menu::MenuEvent),
 }
@@ -262,7 +281,7 @@ async fn main() {
             panic!("Cannot create hotkey manager");
         }
     };
-    let mut current_config = engine.config.clone();
+    let mut current_config = engine.get_config();
     let mut current_hotkey = parse_hotkey_str(&current_config.hotkey)
         .unwrap_or_else(|| HotKey::new(Some(Modifiers::ALT), Code::Space));
     let mut hotkey_registered = false;
@@ -291,15 +310,17 @@ async fn main() {
         }
     });
 
-    // 8. Build borderless, transparent Window centered elevated on monitor (start HIDDEN)
+    // 8. Build borderless, transparent Window centered elevated on monitor (show immediately if first_run)
+    let is_first_run = current_config.first_run;
+    let initial_height = if is_first_run { 560.0 } else { 96.0 };
     let mut builder = WindowBuilder::new()
         .with_title("Kelp")
         .with_decorations(false)
         .with_transparent(true)
         .with_resizable(false)
-        .with_visible(false) // Startup invisible requirement
+        .with_visible(is_first_run) // Show immediately for onboarding; keep hidden if background daemon
         .with_always_on_top(true)
-        .with_inner_size(LogicalSize::new(800.0, 96.0));
+        .with_inner_size(LogicalSize::new(800.0, initial_height));
 
     #[cfg(target_os = "windows")]
     {
@@ -327,6 +348,12 @@ async fn main() {
         let x = monitor_pos.x + (monitor_size.width as i32 - win_width_phys) / 2;
         let y = monitor_pos.y + (monitor_size.height as i32) / 5;
         window.set_outer_position(tao::dpi::PhysicalPosition::new(x, y));
+    }
+
+    if is_first_run {
+        unsafe {
+            force_set_foreground_window(&window);
+        }
     }
 
     // 9. Initialize System Tray
@@ -382,7 +409,7 @@ async fn main() {
                     Ok(msg) => {
                         let event = match msg {
                             IpcMessage::Ready => UserEvent::Ready,
-                            IpcMessage::Search { query } => UserEvent::SearchRequest { query },
+                            IpcMessage::Search { query, query_id } => UserEvent::SearchRequest { query, query_id },
                             IpcMessage::Select { query, path } => UserEvent::SelectRequest { query, path },
                             IpcMessage::SearchWeb { query } => UserEvent::SearchWeb { query },
                             IpcMessage::BrowseFolder { path } => UserEvent::BrowseFolderRequest { path },
@@ -394,9 +421,14 @@ async fn main() {
                             IpcMessage::HideWindow => UserEvent::HideWindow,
                             IpcMessage::GetSettings => UserEvent::GetSettingsRequest,
                             IpcMessage::SaveSettings { config } => UserEvent::SaveSettingsRequest { config },
-                            IpcMessage::PickFolder => UserEvent::PickFolderRequest,
+                            IpcMessage::PickFolder { context } => UserEvent::PickFolderRequest { context },
+                            IpcMessage::AddExclusion { path } => UserEvent::AddExclusionRequest { path },
+                            IpcMessage::RemoveExclusion { path } => UserEvent::RemoveExclusionRequest { path },
                             IpcMessage::ReindexNow => UserEvent::ReindexRequest,
                             IpcMessage::ClearCache => UserEvent::ClearCacheRequest,
+                            IpcMessage::GetPreview { path } => UserEvent::GetPreviewRequest { path },
+                            IpcMessage::MovePaths { sources, destination } => UserEvent::MovePathsRequest { sources, destination },
+                            IpcMessage::KillProcess { pid, name } => UserEvent::KillProcessRequest { pid, name },
                         };
                         let _ = proxy.send_event(event);
                     }
@@ -419,6 +451,7 @@ async fn main() {
     // 10. Run Event Loop
     let _tray_keep_alive = tray_icon;
     let hotkey_mgr = hotkey_manager;
+    let latest_query_id = Arc::new(AtomicU64::new(0));
     event_loop.run(move |event, _, control_flow| {
         let _ = &_tray_keep_alive; // Force moving into closure to keep tray registered forever
         *control_flow = ControlFlow::Wait;
@@ -449,16 +482,34 @@ async fn main() {
                 match user_event {
                     UserEvent::Ready => {
                         info!("Frontend WebView is ready and listening.");
+                        let config_json = serde_json::to_string(&current_config).unwrap_or_else(|_| "{}".to_string());
+                        let mem_bytes = engine::utilities::get_memory_usage();
+                        let mem_mb = mem_bytes as f64 / (1024.0 * 1024.0);
+                        let stats_json = serde_json::json!({
+                            "total_files": engine.total_files(),
+                            "memory_mb": mem_mb,
+                            "version": env!("CARGO_PKG_VERSION"),
+                            "autostart": is_autostart_enabled(),
+                            "hotkey": current_config.hotkey,
+                            "is_indexing": engine.is_indexing(),
+                        }).to_string();
+                        let script = format!("if (window.setSettings) {{ window.setSettings({}, {}); }}", config_json, stats_json);
+                        let _ = webview.evaluate_script(&script);
+
                         let debug_startup = std::env::var("DEBUG_STARTUP")
                             .map(|v| v.to_lowercase() == "true")
                             .unwrap_or(false);
-                        if debug_startup {
-                            info!("[Debug Startup] DEBUG_STARTUP=true detected. Showing launcher immediately.");
+                        if debug_startup || current_config.first_run {
+                            info!("First run or DEBUG_STARTUP detected. Showing window for onboarding.");
                             unsafe {
                                 center_window_on_active_monitor(&window);
                                 force_set_foreground_window(&window);
                             }
-                            let _ = webview.evaluate_script("showLauncher()");
+                            if current_config.first_run {
+                                let _ = webview.evaluate_script("if (window.showOnboarding) { window.showOnboarding(); } else { showLauncher(); }");
+                            } else {
+                                let _ = webview.evaluate_script("showLauncher()");
+                            }
                         }
                     }
                     UserEvent::GlobalHotkey(hotkey_event) => {
@@ -476,39 +527,143 @@ async fn main() {
                             }
                         }
                     }
-                    UserEvent::SearchRequest { query } => {
+                    UserEvent::SearchRequest { query, query_id } => {
+                        // Update the latest query ID atomically — any in-flight search with
+                        // a lower ID will be dropped when its result arrives.
+                        latest_query_id.store(query_id, Ordering::SeqCst);
                         let proxy = event_loop_proxy.clone();
                         let engine_c = engine.clone();
+                        let latest_qid = Arc::clone(&latest_query_id);
                         tokio::task::spawn_blocking(move || {
-                            // Measure exact search and ranking timings
+                            // Early exit: if a newer query has already been issued, skip this work
+                            if latest_qid.load(Ordering::SeqCst) != query_id {
+                                return;
+                            }
+
+                            let trimmed = query.trim();
+                            if trimmed.is_empty() {
+                                let _ = proxy.send_event(UserEvent::SearchCompleted { query_id, results_json: "[]".to_string(), debug_json: None });
+                                return;
+                            }
+
+                            // 1. Process Killer Command Workflow ("kill" or "kill <app>")
+                            if query.eq_ignore_ascii_case("kill") {
+                                let results = vec![SearchResult {
+                                    metadata: engine::models::FileMetadata {
+                                        id: None,
+                                        name: "Kill Process".to_string(),
+                                        extension: String::new(),
+                                        parent_folder: "Type 'kill <app>' to search and terminate running apps".to_string(),
+                                        full_path: "kill_cmd_hint".to_string(),
+                                        modified_date: 0,
+                                        size: 0,
+                                        file_type: engine::models::FileType::Application,
+                                    },
+                                    score: 1.0,
+                                    match_type: "KillCommandHint".to_string(),
+                                    icon_base64: None,
+                                }];
+                                let results_json = serde_json::to_string(&results).unwrap_or_else(|_| "[]".to_string());
+                                let _ = proxy.send_event(UserEvent::SearchCompleted { query_id, results_json, debug_json: None });
+                                return;
+                            } else if query.to_lowercase().starts_with("kill ") {
+                                let target = query["kill ".len()..].trim().to_lowercase();
+                                let procs = engine::process::get_running_user_applications();
+                                let mut results = Vec::new();
+                                for p in procs {
+                                    if target.is_empty()
+                                        || p.name.to_lowercase().contains(&target)
+                                        || p.title.to_lowercase().contains(&target)
+                                    {
+                                        let icon_base64 = p.exe_path.as_deref().and_then(|path| engine::utilities::get_icon_from_exe_path(path));
+                                        results.push(SearchResult {
+                                            metadata: engine::models::FileMetadata {
+                                                id: None,
+                                                name: format!("{} (PID: {})", p.name, p.pid),
+                                                extension: String::new(),
+                                                parent_folder: format!("{} — Terminate Application", p.title),
+                                                full_path: format!("kill://{}", p.pid),
+                                                modified_date: 0,
+                                                size: 0,
+                                                file_type: engine::models::FileType::Application,
+                                            },
+                                            score: 1.0,
+                                            match_type: "KillProcess".to_string(),
+                                            icon_base64,
+                                        });
+                                    }
+                                }
+                                results.truncate(20);
+                                let results_json = serde_json::to_string(&results).unwrap_or_else(|_| "[]".to_string());
+                                let _ = proxy.send_event(UserEvent::SearchCompleted { query_id, results_json, debug_json: None });
+                                return;
+                            }
+
+                            // 2. Normal search with website shortcut support
                             let search_start = std::time::Instant::now();
                             let parsed_query = engine::query_parser::parse_query(&query);
                             let (mut results, matched_files) = engine_c.search_engine.search(&parsed_query);
                             let search_time_us = search_start.elapsed().as_micros() as f64 / 1000.0;
 
-                            let all_files = engine_c.index.get_all();
-                            let mut exact_matches = Vec::new();
-                            let mut prefix_matches = Vec::new();
-                            let mut contains_matches = Vec::new();
-                            let mut fuzzy_matches = Vec::new();
-
-                            for file in &all_files {
-                                if let Some(res) = engine::search::match_file(file, &parsed_query) {
-                                    match res.match_type.as_str() {
-                                        "Exact" => exact_matches.push(res.metadata.name.clone()),
-                                        "Prefix" => prefix_matches.push(res.metadata.name.clone()),
-                                        "Contains" => contains_matches.push(res.metadata.name.clone()),
-                                        "Fuzzy" => fuzzy_matches.push(res.metadata.name.clone()),
-                                        _ => {}
+                            // Website Shortcuts Matching (only when user has typed a non-empty query)
+                            let mut shortcut_results = Vec::new();
+                            if !trimmed.is_empty() {
+                                let cfg = engine_c.get_config();
+                                for sc in &cfg.web_shortcuts {
+                                    if sc.alias.eq_ignore_ascii_case(trimmed) {
+                                        shortcut_results.push(SearchResult {
+                                            metadata: engine::models::FileMetadata {
+                                                id: None,
+                                                name: sc.name.clone(),
+                                                extension: String::new(),
+                                                parent_folder: format!("{} (Website Shortcut)", sc.url),
+                                                full_path: sc.url.clone(),
+                                                modified_date: 0,
+                                                size: 0,
+                                                file_type: engine::models::FileType::Shortcut,
+                                            },
+                                            score: 1.0,
+                                            match_type: "WebShortcut".to_string(),
+                                            icon_base64: None,
+                                        });
+                                    } else if sc.alias.to_lowercase().starts_with(&trimmed.to_lowercase()) {
+                                        shortcut_results.push(SearchResult {
+                                            metadata: engine::models::FileMetadata {
+                                                id: None,
+                                                name: sc.name.clone(),
+                                                extension: String::new(),
+                                                parent_folder: format!("{} (Website Shortcut)", sc.url),
+                                                full_path: sc.url.clone(),
+                                                modified_date: 0,
+                                                size: 0,
+                                                file_type: engine::models::FileType::Shortcut,
+                                            },
+                                            score: 0.85,
+                                            match_type: "WebShortcut".to_string(),
+                                            icon_base64: None,
+                                        });
+                                    } else if sc.name.to_lowercase().starts_with(&trimmed.to_lowercase()) {
+                                        shortcut_results.push(SearchResult {
+                                            metadata: engine::models::FileMetadata {
+                                                id: None,
+                                                name: sc.name.clone(),
+                                                extension: String::new(),
+                                                parent_folder: format!("{} (Website Shortcut)", sc.url),
+                                                full_path: sc.url.clone(),
+                                                modified_date: 0,
+                                                size: 0,
+                                                file_type: engine::models::FileType::Shortcut,
+                                            },
+                                            score: 0.80,
+                                            match_type: "WebShortcut".to_string(),
+                                            icon_base64: None,
+                                        });
                                     }
                                 }
                             }
 
-                            info!("Normalized query: '{}'", parsed_query.raw);
-                            info!("Exact matches: {:?}", exact_matches);
-                            info!("Prefix matches: {:?}", prefix_matches);
-                            info!("Contains matches: {:?}", contains_matches);
-                            info!("Fuzzy matches: {:?}", fuzzy_matches);
+                            // Log search results summary for diagnostics
+                            info!("Normalized query: '{}', matched {} candidates", parsed_query.raw, results.len());
 
                             let rank_start = std::time::Instant::now();
                             engine_c.ranking_engine.rank(&mut results, &parsed_query);
@@ -518,12 +673,18 @@ async fn main() {
                             let q_len = parsed_query.raw.len();
                             let threshold = if q_len <= 2 { 0.2 } else if q_len <= 4 { 0.3 } else { 0.4 };
                             results.retain(|r| r.score >= threshold);
+
+                            // Prepend shortcut matches ahead of normal files
+                            if !shortcut_results.is_empty() {
+                                results.splice(0..0, shortcut_results);
+                            }
+
                             results.truncate(15);
 
-                            info!("Final ranked list: {:?}", results.iter().map(|r| format!("{} (score={:.3}, type={})", r.metadata.name, r.score, r.match_type)).collect::<Vec<_>>());
-
                             for r in &mut results {
-                                r.icon_base64 = Some(engine::utilities::get_icon_cached(&r.metadata));
+                                if r.match_type != "WebShortcut" && r.match_type != "KillProcess" {
+                                    r.icon_base64 = Some(engine::utilities::get_icon_cached(&r.metadata));
+                                }
                             }
 
                             engine_c.cache.insert(&query, matched_files, results.clone());
@@ -531,7 +692,6 @@ async fn main() {
                             let results_json = serde_json::to_string(&results).unwrap_or_else(|_| "[]".to_string());
 
                             let debug_json = if cfg!(debug_assertions) {
-                                use std::sync::atomic::Ordering;
                                 let mem_bytes = engine::utilities::get_memory_usage();
                                 let mem_mb = mem_bytes as f64 / (1024.0 * 1024.0);
                                 let info = serde_json::json!({
@@ -547,20 +707,44 @@ async fn main() {
                                 None
                             };
 
-                            let _ = proxy.send_event(UserEvent::SearchCompleted { results_json, debug_json });
+                            let _ = proxy.send_event(UserEvent::SearchCompleted { query_id, results_json, debug_json });
                         });
                     }
-                    UserEvent::SearchCompleted { results_json, debug_json } => {
-                        let script = if let Some(ref dbg) = debug_json {
-                            format!("setResults({}, {})", results_json, dbg)
+                    UserEvent::SearchCompleted { query_id, results_json, debug_json } => {
+                        // Drop stale results from superseded queries
+                        if query_id < latest_query_id.load(Ordering::SeqCst) {
+                            info!("[Search] Dropping stale search result for query_id={}", query_id);
+                            // Don't push results to webview — a newer query is in progress
                         } else {
-                            format!("setResults({}, null)", results_json)
-                        };
-                        if let Err(e) = webview.evaluate_script(&script) {
-                            error!("Failed to push results to webview: {:?}", e);
+                            let script = if let Some(ref dbg) = debug_json {
+                                format!("setResults({}, {})", results_json, dbg)
+                            } else {
+                                format!("setResults({}, null)", results_json)
+                            };
+                            if let Err(e) = webview.evaluate_script(&script) {
+                                error!("Failed to push results to webview: {:?}", e);
+                            }
                         }
                     }
                     UserEvent::SelectRequest { query, path } => {
+                        if path == "kill_cmd_hint" {
+                            return;
+                        }
+                        if path.starts_with("kill://") {
+                            let pid_str = path.trim_start_matches("kill://");
+                            if let Ok(pid) = pid_str.parse::<u32>() {
+                                let proxy = event_loop_proxy.clone();
+                                tokio::task::spawn_blocking(move || {
+                                    let res = engine::process::terminate_process(pid);
+                                    let (success, message) = match res {
+                                        Ok(_) => (true, format!("Successfully terminated PID {}", pid)),
+                                        Err(e) => (false, e),
+                                    };
+                                    let _ = proxy.send_event(UserEvent::ProcessKilled { success, message });
+                                });
+                            }
+                            return;
+                        }
                         let engine_c = engine.clone();
                         let path_clone = path.clone();
                         // Asynchronously record selection to database
@@ -836,6 +1020,7 @@ async fn main() {
                             "version": env!("CARGO_PKG_VERSION"),
                             "autostart": is_autostart_enabled(),
                             "hotkey": current_config.hotkey,
+                            "is_indexing": engine.is_indexing(),
                         }).to_string();
                         let script = format!("if (window.setSettings) {{ window.setSettings({}, {}); }}", config_json, stats_json);
                         let _ = webview.evaluate_script(&script);
@@ -863,19 +1048,35 @@ async fn main() {
                         // 3. Save to disk
                         let cfg_path = engine::utilities::get_app_data_dir().join("config.json");
                         let _ = new_cfg.save(&cfg_path);
+                        engine.update_config(new_cfg.clone());
                         current_config = new_cfg;
                         let _ = webview.evaluate_script("if (window.onSettingsSaved) { window.onSettingsSaved(true); }");
                     }
-                    UserEvent::PickFolderRequest => {
+                    UserEvent::PickFolderRequest { context } => {
                         let proxy = event_loop_proxy.clone();
                         tokio::task::spawn_blocking(move || {
                             let picked = pick_folder_dialog();
-                            let _ = proxy.send_event(UserEvent::FolderPicked { path: picked });
+                            let _ = proxy.send_event(UserEvent::FolderPicked { path: picked, context });
                         });
                     }
-                    UserEvent::FolderPicked { path } => {
+                    UserEvent::FolderPicked { path, context } => {
                         let path_json = serde_json::to_string(&path).unwrap_or_else(|_| "null".to_string());
-                        let script = format!("if (window.onFolderPicked) {{ window.onFolderPicked({}); }}", path_json);
+                        let ctx_json = serde_json::to_string(&context).unwrap_or_else(|_| "\"\"".to_string());
+                        let script = format!("if (window.onFolderPicked) {{ window.onFolderPicked({}, {}); }}", path_json, ctx_json);
+                        let _ = webview.evaluate_script(&script);
+                    }
+                    UserEvent::AddExclusionRequest { path } => {
+                        let _ = engine.add_exclusion(&path);
+                        current_config = engine.get_config();
+                        let config_json = serde_json::to_string(&current_config).unwrap_or_else(|_| "{}".to_string());
+                        let script = format!("if (window.onConfigUpdated) {{ window.onConfigUpdated({}); }}", config_json);
+                        let _ = webview.evaluate_script(&script);
+                    }
+                    UserEvent::RemoveExclusionRequest { path } => {
+                        let _ = engine.remove_exclusion(&path);
+                        current_config = engine.get_config();
+                        let config_json = serde_json::to_string(&current_config).unwrap_or_else(|_| "{}".to_string());
+                        let script = format!("if (window.onConfigUpdated) {{ window.onConfigUpdated({}); }}", config_json);
                         let _ = webview.evaluate_script(&script);
                     }
                     UserEvent::ReindexRequest => {
@@ -902,6 +1103,61 @@ async fn main() {
                     UserEvent::ClearCacheCompleted => {
                         let script = "if (window.onCacheCleared) { window.onCacheCleared(); }";
                         let _ = webview.evaluate_script(script);
+                    }
+                    UserEvent::GetPreviewRequest { path } => {
+                        let proxy = event_loop_proxy.clone();
+                        let p = path.clone();
+                        tokio::task::spawn_blocking(move || {
+                            let thumb = engine::utilities::generate_image_thumbnail_base64(&p, 480, 360).ok();
+                            let _ = proxy.send_event(UserEvent::PreviewReady { path: p, thumbnail_base64: thumb });
+                        });
+                    }
+                    UserEvent::PreviewReady { path, thumbnail_base64 } => {
+                        let path_json = serde_json::to_string(&path).unwrap_or_else(|_| "\"\"".to_string());
+                        let thumb_json = serde_json::to_string(&thumbnail_base64).unwrap_or_else(|_| "null".to_string());
+                        let script = format!("if (window.setPreviewThumbnail) {{ window.setPreviewThumbnail({}, {}); }}", path_json, thumb_json);
+                        let _ = webview.evaluate_script(&script);
+                    }
+                    UserEvent::MovePathsRequest { sources, destination } => {
+                        let proxy = event_loop_proxy.clone();
+                        let engine_c = engine.clone();
+                        tokio::task::spawn_blocking(move || {
+                            let summary = engine::fs_ops::move_entries(&sources, &destination);
+                            let moved_count = summary.moved.len();
+                            let error_msg = if !summary.failed.is_empty() {
+                                Some(summary.failed.iter().map(|(p, err)| format!("{}: {}", p, err)).collect::<Vec<_>>().join("; "))
+                            } else {
+                                None
+                            };
+                            let paths = engine_c.get_config().search_paths;
+                            let _ = engine_c.reindex_blocking(&paths);
+                            let _ = proxy.send_event(UserEvent::MoveCompleted { moved_count, error_msg });
+                        });
+                    }
+                    UserEvent::MoveCompleted { moved_count, error_msg } => {
+                        let (msg, success) = match error_msg {
+                            Some(err) => (format!("Moved {} item(s). Errors: {}", moved_count, err), false),
+                            None => (format!("Successfully moved {} item(s)!", moved_count), true),
+                        };
+                        let msg_json = serde_json::to_string(&msg).unwrap_or_else(|_| "\"\"".to_string());
+                        let script = format!("if (window.showToast) {{ window.showToast({}, {}); }}", msg_json, success);
+                        let _ = webview.evaluate_script(&script);
+                    }
+                    UserEvent::KillProcessRequest { pid, name } => {
+                        let proxy = event_loop_proxy.clone();
+                        tokio::task::spawn_blocking(move || {
+                            let res = engine::process::terminate_process(pid);
+                            let (success, message) = match res {
+                                Ok(_) => (true, format!("Successfully terminated {} (PID {})", name, pid)),
+                                Err(e) => (false, e),
+                            };
+                            let _ = proxy.send_event(UserEvent::ProcessKilled { success, message });
+                        });
+                    }
+                    UserEvent::ProcessKilled { success, message } => {
+                        let msg_json = serde_json::to_string(&message).unwrap_or_else(|_| "\"\"".to_string());
+                        let script = format!("if (window.showToast) {{ window.showToast({}, {}); }}", msg_json, success);
+                        let _ = webview.evaluate_script(&script);
                     }
                 }
             }

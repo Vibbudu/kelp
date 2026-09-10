@@ -8,9 +8,9 @@ use crate::search_engine::SearchEngine;
 use crate::storage::Storage;
 use crate::watcher::{FileWatcher, WatcherEvent};
 use std::path::Path;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 use tokio::sync::mpsc;
-use tracing::{error, info};
+use tracing::{error, info, warn};
 
 pub struct UIBridge {
     _storage: Storage,
@@ -20,7 +20,8 @@ pub struct UIBridge {
     pub search_engine: SearchEngine,
     pub ranking_engine: RankingEngine,
     _watcher: Option<FileWatcher>,
-    pub config: crate::config::AppConfig,
+    config: RwLock<crate::config::AppConfig>,
+    pub is_indexing: Arc<std::sync::atomic::AtomicBool>,
 }
 
 impl UIBridge {
@@ -47,50 +48,40 @@ impl UIBridge {
         let index = Arc::new(MemoryIndex::new(loaded_files));
         let cache = Arc::new(ResultCache::new());
 
-        let index_c = Arc::clone(&index);
-        let storage_c = storage.clone();
-        let paths_c = paths_to_watch.to_vec();
         let config_c = app_config.clone();
 
-        // 4. Crawl if empty
-        if index.len() == 0 {
-            info!("Database index empty. Triggering initial background scan...");
-            let config_thread = config_c.clone();
+        // 4. Spawn non-blocking background crawler (initial or incremental)
+        let paths_bg = paths_to_watch.to_vec();
+        let storage_bg = storage.clone();
+        let index_bg = Arc::clone(&index);
+        let config_thread = config_c.clone();
+        let is_initial = index.len() == 0;
+        let is_indexing = Arc::new(std::sync::atomic::AtomicBool::new(true));
+        let is_indexing_bg = Arc::clone(&is_indexing);
+
+        if is_initial {
+            info!("Database index empty. Triggering initial non-blocking background scan...");
+        } else {
+            info!("Loaded {} items from database into memory index. Triggering background sync...", index.len());
+        }
+
+        tokio::spawn(async move {
             tokio::task::spawn_blocking(move || {
-                let indexer = Indexer::new(storage_c.clone(), config_thread);
-                match indexer.index_paths(&paths_c) {
+                let indexer = Indexer::new(storage_bg.clone(), config_thread);
+                match indexer.index_paths(&paths_bg) {
                     Ok(count) => {
-                        info!("Initial indexing scanned {} items.", count);
-                        if let Ok(new_files) = storage_c.load_all_files() {
-                            index_c.rebuild(new_files);
+                        info!("Background indexing finished. Total: {} items.", count);
+                        if let Ok(new_files) = storage_bg.load_all_files() {
+                            index_bg.rebuild(new_files);
                         }
                     }
                     Err(e) => {
-                        error!("Initial background indexing failed: {}", e);
+                        error!("Background indexing failed: {}", e);
                     }
                 }
-            })
-            .await
-            .map_err(|e| format!("Indexer join failed: {}", e))?;
-        } else {
-            info!("Loaded {} items from database into memory index.", index.len());
-            // Trigger incremental scan in the background to sync any updates since last closure
-            let paths_inc = paths_to_watch.to_vec();
-            let storage_inc = storage.clone();
-            let index_inc = Arc::clone(&index);
-            let config_thread = config_c.clone();
-            tokio::spawn(async move {
-                tokio::task::spawn_blocking(move || {
-                    let indexer = Indexer::new(storage_inc.clone(), config_thread);
-                    if let Ok(count) = indexer.index_paths(&paths_inc) {
-                        info!("Startup sync finished indexing. Total: {} items.", count);
-                        if let Ok(new_files) = storage_inc.load_all_files() {
-                            index_inc.rebuild(new_files);
-                        }
-                    }
-                });
+                is_indexing_bg.store(false, std::sync::atomic::Ordering::SeqCst);
             });
-        }
+        });
 
         // 5. Setup Watcher & Event Channel
         let (tx, mut rx) = mpsc::unbounded_channel();
@@ -185,6 +176,104 @@ impl UIBridge {
                             }
                         });
                     }
+                    WatcherEvent::BatchUpdated { created_or_modified, deleted } => {
+                        let storage = watcher_storage.clone();
+                        let idx = Arc::clone(&watcher_index);
+                        let query_cache = Arc::clone(&watcher_cache);
+
+                        tokio::task::spawn_blocking(move || {
+                            let mut batch_to_save = Vec::new();
+
+                            for path in created_or_modified {
+                                if !path.exists() {
+                                    continue;
+                                }
+                                if let Ok(metadata) = std::fs::metadata(&path) {
+                                    let is_dir = metadata.is_dir();
+                                    let mut name = path
+                                        .file_name()
+                                        .map(|n| n.to_string_lossy().to_string())
+                                        .unwrap_or_default();
+                                    if name.is_empty() {
+                                        continue;
+                                    }
+
+                                    let extension = if is_dir {
+                                        String::new()
+                                    } else {
+                                        path.extension()
+                                            .map(|e| e.to_string_lossy().to_string().to_lowercase())
+                                            .unwrap_or_default()
+                                    };
+
+                                    if extension == "lnk" && name.to_lowercase().ends_with(".lnk") {
+                                        name = name[..name.len() - 4].to_string();
+                                    }
+
+                                    let parent = path
+                                        .parent()
+                                        .map(|p| p.to_string_lossy().to_string())
+                                        .unwrap_or_default();
+                                    let size = if is_dir { 0 } else { metadata.len() as i64 };
+                                    let modified = metadata
+                                        .modified()
+                                        .ok()
+                                        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+                                        .map(|d| d.as_secs() as i64)
+                                        .unwrap_or(0);
+
+                                    let file_type = if is_dir {
+                                        crate::models::FileType::Folder
+                                    } else if extension == "exe" {
+                                        crate::models::FileType::Application
+                                    } else if extension == "lnk" {
+                                        if let Some(target) = crate::utilities::resolve_lnk(&path) {
+                                            if target.extension().map_or(false, |ext| ext == "exe") {
+                                                crate::models::FileType::Application
+                                            } else {
+                                                crate::models::FileType::Shortcut
+                                            }
+                                        } else {
+                                            crate::models::FileType::Shortcut
+                                        }
+                                    } else {
+                                        crate::models::FileType::File
+                                    };
+
+                                    batch_to_save.push(FileMetadata {
+                                        id: None,
+                                        name,
+                                        extension,
+                                        parent_folder: parent,
+                                        full_path: path.to_string_lossy().to_string(),
+                                        modified_date: modified,
+                                        size,
+                                        file_type,
+                                    });
+                                }
+                            }
+
+                            // 1. Batch write to SQLite and update MemoryIndex
+                            if !batch_to_save.is_empty() {
+                                if let Err(e) = storage.save_files(&batch_to_save) {
+                                    error!("Failed to save batch watched files: {:?}", e);
+                                }
+                                idx.add_or_update_batch(batch_to_save);
+                            }
+
+                            // 2. Batch delete from SQLite and update MemoryIndex
+                            if !deleted.is_empty() {
+                                let deleted_strings: Vec<String> = deleted.iter().map(|p| p.to_string_lossy().to_string()).collect();
+                                for path_str in &deleted_strings {
+                                    let _ = storage.delete_folder_recursive(path_str);
+                                }
+                                idx.remove_prefix_batch(&deleted_strings);
+                            }
+
+                            // 3. Clear cache once for the entire batch
+                            query_cache.clear();
+                        });
+                    }
                     WatcherEvent::Deleted(path) => {
                         let path_str = path.to_string_lossy().to_string();
                         let storage = watcher_storage.clone();
@@ -220,7 +309,8 @@ impl UIBridge {
             search_engine,
             ranking_engine,
             _watcher: Some(watcher),
-            config: app_config,
+            config: RwLock::new(app_config),
+            is_indexing,
         })
     }
 
@@ -300,13 +390,21 @@ impl UIBridge {
 
     /// Performs a manual full reindexing of given paths, updating memory index and caches.
     pub fn reindex_blocking(&self, paths: &[String]) -> Result<usize, String> {
-        let indexer = Indexer::new(self._storage.clone(), self.config.clone());
-        let count = indexer.index_paths(paths).map_err(|e| e.to_string())?;
+        self.is_indexing.store(true, std::sync::atomic::Ordering::SeqCst);
+        let indexer = Indexer::new(self._storage.clone(), self.get_config());
+        let res = indexer.index_paths(paths).map_err(|e| e.to_string());
+        self.is_indexing.store(false, std::sync::atomic::Ordering::SeqCst);
+        let count = res?;
         if let Ok(new_files) = self._storage.load_all_files() {
             self.index.rebuild(new_files);
         }
         self.cache.clear();
         Ok(count)
+    }
+
+    /// Returns true if background crawling or manual reindexing is active.
+    pub fn is_indexing(&self) -> bool {
+        self.is_indexing.load(std::sync::atomic::Ordering::SeqCst)
     }
 
     /// Clears both in-memory and SQLite learning query history and clears result caches.
@@ -316,8 +414,153 @@ impl UIBridge {
         Ok(())
     }
 
+    /// Returns a clone of the current AppConfig.
+    pub fn get_config(&self) -> crate::config::AppConfig {
+        match self.config.read() {
+            Ok(guard) => guard.clone(),
+            Err(poisoned) => {
+                warn!("UIBridge config read lock poisoned, recovering");
+                poisoned.into_inner().clone()
+            }
+        }
+    }
+
     /// Updates the in-memory AppConfig reference.
-    pub fn update_config(&mut self, config: crate::config::AppConfig) {
-        self.config = config;
+    pub fn update_config(&self, config: crate::config::AppConfig) {
+        match self.config.write() {
+            Ok(mut guard) => *guard = config,
+            Err(poisoned) => {
+                warn!("UIBridge config write lock poisoned, recovering");
+                *poisoned.into_inner() = config;
+            }
+        }
+    }
+
+    /// Immediately purges an excluded path from RAM index and deletes from SQLite without full rebuild.
+    pub fn add_exclusion(&self, path: &str) -> Result<(), String> {
+        let expanded = crate::utilities::expand_env_vars(path);
+
+        // 1. Update config
+        {
+            let mut cfg = match self.config.write() {
+                Ok(guard) => guard,
+                Err(p) => p.into_inner(),
+            };
+            if !cfg.excluded_paths.iter().any(|p| p.eq_ignore_ascii_case(path)) {
+                cfg.excluded_paths.push(path.to_string());
+                let cfg_path = crate::utilities::get_app_data_dir().join("config.json");
+                let _ = cfg.save(&cfg_path);
+            }
+        }
+
+        // 2. Instant memory removal (< 10ms)
+        self.index.remove_prefix(&expanded);
+
+        // 3. Clear result cache
+        self.cache.clear();
+
+        // 4. Background SQLite deletion
+        let storage = self._storage.clone();
+        let path_clone = expanded.clone();
+        tokio::task::spawn_blocking(move || {
+            let _ = storage.delete_folder_recursive(&path_clone);
+        });
+
+        Ok(())
+    }
+
+    /// Removes an excluded path from config and triggers background reindexing for that path.
+    pub fn remove_exclusion(&self, path: &str) -> Result<(), String> {
+        // 1. Update config
+        {
+            let mut cfg = match self.config.write() {
+                Ok(guard) => guard,
+                Err(p) => p.into_inner(),
+            };
+            cfg.excluded_paths.retain(|p| !p.eq_ignore_ascii_case(path));
+            let cfg_path = crate::utilities::get_app_data_dir().join("config.json");
+            let _ = cfg.save(&cfg_path);
+        }
+
+        // 2. Trigger background reindexing for this path to restore files
+        let storage = self._storage.clone();
+        let index = Arc::clone(&self.index);
+        let path_to_scan = path.to_string();
+        let config = self.get_config();
+
+        tokio::spawn(async move {
+            tokio::task::spawn_blocking(move || {
+                let indexer = Indexer::new(storage.clone(), config);
+                if let Ok(count) = indexer.index_paths(&[path_to_scan]) {
+                    info!("Restored {} items after removing exclusion.", count);
+                    if let Ok(new_files) = storage.load_all_files() {
+                        index.rebuild(new_files);
+                    }
+                }
+            });
+        });
+
+        self.cache.clear();
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_ui_bridge_exclusion_lifecycle() {
+        let temp_dir = std::env::temp_dir().join(format!("kelp_test_bridge_{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()));
+        let db_path = temp_dir.join("test.db");
+        let storage = Storage::new(&db_path).unwrap();
+        let files = vec![
+            FileMetadata {
+                id: None,
+                name: "keep.txt".to_string(),
+                extension: "txt".to_string(),
+                parent_folder: "C:\\keep".to_string(),
+                full_path: "C:\\keep\\keep.txt".to_string(),
+                modified_date: 0,
+                size: 10,
+                file_type: crate::models::FileType::File,
+            },
+            FileMetadata {
+                id: None,
+                name: "drop.txt".to_string(),
+                extension: "txt".to_string(),
+                parent_folder: "C:\\drop_folder".to_string(),
+                full_path: "C:\\drop_folder\\drop.txt".to_string(),
+                modified_date: 0,
+                size: 10,
+                file_type: crate::models::FileType::File,
+            },
+        ];
+        let index = Arc::new(MemoryIndex::new(files));
+        let cache = Arc::new(ResultCache::new());
+        let learning = Arc::new(LearningEngine::new(storage.clone()));
+        let search_engine = SearchEngine::new(Arc::clone(&index), Arc::clone(&cache));
+        let ranking_engine = RankingEngine::default_config(Arc::clone(&learning));
+        let config = crate::config::AppConfig::default();
+
+        let bridge = UIBridge {
+            _storage: storage,
+            learning,
+            index: Arc::clone(&index),
+            cache,
+            search_engine,
+            ranking_engine,
+            _watcher: None,
+            config: RwLock::new(config),
+            is_indexing: Arc::new(std::sync::atomic::AtomicBool::new(false)),
+        };
+
+        assert_eq!(bridge.index.len(), 2);
+        bridge.add_exclusion("C:\\drop_folder").unwrap();
+        assert_eq!(bridge.index.len(), 1);
+        assert_eq!(bridge.index.get_all()[0].name, "keep.txt");
+        assert!(bridge.get_config().excluded_paths.iter().any(|p| p == "C:\\drop_folder"));
+
+        let _ = std::fs::remove_dir_all(&temp_dir);
     }
 }

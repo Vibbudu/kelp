@@ -140,6 +140,39 @@ fn to_base64(bytes: &[u8]) -> String {
     result
 }
 
+/// Reads an image from disk and downscales it to max dimensions, returning base64 PNG data.
+/// Memory-efficient: limits max source dimensions and downsizes before encoding.
+pub fn generate_image_thumbnail_base64(path: &str, max_width: u32, max_height: u32) -> Result<String, String> {
+    let p = Path::new(path);
+    if !p.exists() {
+        return Err("File not found".to_string());
+    }
+
+    let meta = std::fs::metadata(p).map_err(|e| format!("Failed to read file metadata: {}", e))?;
+    if meta.len() > 100 * 1024 * 1024 {
+        return Err("File too large for preview (>100MB)".to_string());
+    }
+
+    let img = image::io::Reader::open(p)
+        .map_err(|e| format!("Cannot open image: {}", e))?
+        .with_guessed_format()
+        .map_err(|e| format!("Unsupported image format: {}", e))?
+        .decode()
+        .map_err(|e| format!("Failed to decode image: {}", e))?;
+
+    let thumb = img.thumbnail(max_width, max_height);
+    let (width, height) = (thumb.width(), thumb.height());
+    let rgba = thumb.to_rgba8();
+
+    let mut png_bytes = Vec::new();
+    let encoder = image::codecs::png::PngEncoder::new(&mut png_bytes);
+    encoder
+        .write_image(&rgba, width, height, image::ColorType::Rgba8)
+        .map_err(|e| format!("Failed to encode thumbnail: {}", e))?;
+
+    Ok(to_base64(&png_bytes))
+}
+
 /// High-performance Windows icon extractor.
 /// Convers standard desktop HICON resources to compact PNG byte buffers using Windows GDI and the image crate.
 pub fn extract_icon_to_png(path: &str, is_dir: bool, ext: &str) -> Option<Vec<u8>> {
@@ -417,6 +450,36 @@ pub fn get_icon_cached(metadata: &crate::models::FileMetadata) -> String {
     base64_str
 }
 
+/// Retrieves and caches an application icon from an executable file path.
+pub fn get_icon_from_exe_path(exe_path: &str) -> Option<String> {
+    let cache = ICON_CACHE.get_or_init(|| Mutex::new(HashMap::new()));
+    let key = exe_path.to_string();
+    {
+        let guard = match cache.lock() {
+            Ok(g) => g,
+            Err(p) => p.into_inner(),
+        };
+        if let Some(base64) = guard.get(&key) {
+            if !base64.is_empty() {
+                return Some(base64.clone());
+            }
+        }
+    }
+
+    let extracted = extract_icon_to_png(exe_path, false, "");
+    if let Some(png_bytes) = extracted {
+        let base64_str = to_base64(&png_bytes);
+        let mut guard = match cache.lock() {
+            Ok(g) => g,
+            Err(p) => p.into_inner(),
+        };
+        guard.insert(key, base64_str.clone());
+        Some(base64_str)
+    } else {
+        None
+    }
+}
+
 /// Retrieves the current process memory working set size in bytes
 pub fn get_memory_usage() -> usize {
     #[cfg(target_os = "windows")]
@@ -461,12 +524,162 @@ pub fn get_app_data_dir() -> PathBuf {
     path
 }
 
-/// Shared path exclusion logic for indexing and file watching.
-/// Returns true if the path should be excluded from indexing/watching.
-pub fn should_exclude_path(path: &Path, supported_extensions: &[String]) -> bool {
+/// Checks if a directory name is a known system, developer, or legacy junction folder.
+pub fn is_excluded_dir_name(name: &str) -> bool {
+    let name_lower = name.to_lowercase();
+    matches!(
+        name_lower.as_str(),
+        "node_modules"
+            | ".git"
+            | "target"
+            | ".cargo"
+            | ".rustup"
+            | ".next"
+            | ".nuxt"
+            | "dist"
+            | "build"
+            | "out"
+            | ".venv"
+            | "venv"
+            | "env"
+            | ".env"
+            | "__pycache__"
+            | ".idea"
+            | ".vscode"
+            | ".gradle"
+            | "vendor"
+            | "bower_components"
+            | "bin"
+            | "obj"
+            | ".turbo"
+            | ".cache"
+            | "$recycle.bin"
+            | "system volume information"
+            | "winsxs"
+            | "npm-cache"
+            | "my music"
+            | "my pictures"
+            | "my videos"
+            | "my documents"
+            | "application data"
+            | "local settings"
+    )
+}
+
+/// Checks if a path falls under any of the user-configured excluded paths.
+pub fn is_path_in_user_exclusions(path_str: &str, excluded_paths: &[String]) -> bool {
+    let path_norm = path_str.replace('/', "\\").to_lowercase();
+    for excl in excluded_paths {
+        if excl.is_empty() {
+            continue;
+        }
+        let expanded = expand_env_vars(excl).replace('/', "\\").to_lowercase();
+        let trimmed = expanded.trim_end_matches('\\');
+        if path_norm == trimmed || path_norm.starts_with(&format!("{}\\", trimmed)) {
+            return true;
+        }
+    }
+    false
+}
+
+/// Fast single-pass filter for WalkDir entry pruning.
+/// When returning true for a directory, WalkDir will not descend into its children.
+pub fn should_exclude_dir_entry(entry: &walkdir::DirEntry, config: &crate::config::AppConfig) -> bool {
+    // Never prune the search root itself
+    if entry.depth() == 0 {
+        return false;
+    }
+
+    let file_name = entry.file_name().to_string_lossy();
+    let is_dir = entry.file_type().is_dir();
+
+    // 1. Prune known excluded directory names immediately (O(1) name check, no syscalls)
+    if is_dir && is_excluded_dir_name(&file_name) {
+        return true;
+    }
+
+    let path = entry.path();
     let path_str = path.to_string_lossy();
-    
-    // 1. Exclude noisy developer / system / legacy junction directories
+
+    // Prune Temp folder under AppData\Local
+    if is_dir && file_name.eq_ignore_ascii_case("temp") && path_str.to_lowercase().contains("appdata\\local") {
+        return true;
+    }
+
+    // 2. Prune user-configured excluded paths
+    if is_path_in_user_exclusions(&path_str, &config.excluded_paths) {
+        return true;
+    }
+
+    // 3. Substring checks for deep nested paths
+    let exclusions = [
+        "\\node_modules\\",
+        "\\.git\\",
+        "\\target\\",
+        "\\AppData\\Roaming\\npm-cache",
+        "\\.cargo\\",
+        "\\.rustup\\",
+        "\\$RECYCLE.BIN",
+        "\\System Volume Information",
+        "\\Local Settings\\Temporary Internet Files",
+        "\\Windows\\WinSxS",
+        "\\Windows\\System32",
+    ];
+    for excl in &exclusions {
+        if path_str.contains(excl) {
+            return true;
+        }
+    }
+
+    // 4. Windows file attributes check (prunes reparse points/junctions and hidden/system directories)
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::fs::MetadataExt;
+        if let Ok(meta) = entry.metadata() {
+            let attrs = meta.file_attributes();
+            // 0x2 = HIDDEN, 0x4 = SYSTEM, 0x400 = REPARSE_POINT
+            if (attrs & 0x2) != 0 || (attrs & 0x4) != 0 || (attrs & 0x400) != 0 {
+                return true;
+            }
+        } else {
+            return true;
+        }
+    }
+
+    // 5. File-level filtering
+    if !is_dir {
+        if file_name.starts_with("~$") || file_name.starts_with('.') {
+            return true;
+        }
+        if let Some(ext) = path.extension() {
+            let ext_str = ext.to_string_lossy().to_lowercase();
+            if !config.supported_extensions.contains(&ext_str) {
+                return true;
+            }
+        } else {
+            return true;
+        }
+    }
+
+    false
+}
+
+/// Shared path exclusion logic for indexing and file watching against AppConfig.
+/// Returns true if the path should be excluded.
+pub fn should_exclude_path(path: &Path, config: &crate::config::AppConfig) -> bool {
+    let path_str = path.to_string_lossy();
+
+    if let Some(name) = path.file_name() {
+        let name_str = name.to_string_lossy();
+        if is_excluded_dir_name(&name_str) {
+            return true;
+        }
+    }
+
+    if is_path_in_user_exclusions(&path_str, &config.excluded_paths) {
+        return true;
+    }
+
     let exclusions = [
         "\\node_modules\\",
         "\\.git\\",
@@ -494,17 +707,15 @@ pub fn should_exclude_path(path: &Path, supported_extensions: &[String]) -> bool
         }
     }
 
-    // 2. Check file attributes via symlink_metadata (never follow reparse points/junctions)
     #[cfg(target_os = "windows")]
     {
         use std::os::windows::fs::MetadataExt;
         let sym_meta = match std::fs::symlink_metadata(path) {
             Ok(m) => m,
-            Err(_) => return true, // If we cannot read metadata/permission denied, exclude it
+            Err(_) => return true,
         };
 
         let attributes = sym_meta.file_attributes();
-        // 0x2 = FILE_ATTRIBUTE_HIDDEN, 0x4 = FILE_ATTRIBUTE_SYSTEM, 0x400 = FILE_ATTRIBUTE_REPARSE_POINT
         if (attributes & 0x2) != 0 || (attributes & 0x4) != 0 || (attributes & 0x400) != 0 {
             return true;
         }
@@ -513,11 +724,11 @@ pub fn should_exclude_path(path: &Path, supported_extensions: &[String]) -> bool
         if !is_dir {
             if let Some(ext) = path.extension() {
                 let ext_str = ext.to_string_lossy().to_lowercase();
-                if !supported_extensions.contains(&ext_str) {
+                if !config.supported_extensions.contains(&ext_str) {
                     return true;
                 }
             } else {
-                return true; // Exclude files with no extensions
+                return true;
             }
         }
     }
@@ -527,7 +738,7 @@ pub fn should_exclude_path(path: &Path, supported_extensions: &[String]) -> bool
         if !path.is_dir() {
             if let Some(ext) = path.extension() {
                 let ext_str = ext.to_string_lossy().to_lowercase();
-                if !supported_extensions.contains(&ext_str) {
+                if !config.supported_extensions.contains(&ext_str) {
                     return true;
                 }
             } else {

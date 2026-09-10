@@ -33,8 +33,34 @@ pub struct AppConfig {
     pub default_web_engine: String,
     #[serde(default = "default_web_bang")]
     pub web_bang_prefix: String,
+    #[serde(default = "default_false")]
+    pub first_run: bool,
+    #[serde(default = "default_web_shortcuts")]
+    pub web_shortcuts: Vec<WebShortcut>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct WebShortcut {
+    pub name: String,
+    pub alias: String,
+    pub url: String,
+    #[serde(default)]
+    pub icon: Option<String>,
+}
+
+fn default_web_shortcuts() -> Vec<WebShortcut> {
+    vec![
+        WebShortcut { name: "YouTube".to_string(), alias: "yt".to_string(), url: "https://youtube.com".to_string(), icon: Some("smart_display".to_string()) },
+        WebShortcut { name: "GitHub".to_string(), alias: "gh".to_string(), url: "https://github.com".to_string(), icon: Some("code".to_string()) },
+        WebShortcut { name: "Gmail".to_string(), alias: "gmail".to_string(), url: "https://mail.google.com".to_string(), icon: Some("mail".to_string()) },
+        WebShortcut { name: "Google Calendar".to_string(), alias: "cal".to_string(), url: "https://calendar.google.com".to_string(), icon: Some("calendar_month".to_string()) },
+        WebShortcut { name: "ChatGPT".to_string(), alias: "gpt".to_string(), url: "https://chatgpt.com".to_string(), icon: Some("chat".to_string()) },
+        WebShortcut { name: "Gemini".to_string(), alias: "gemini".to_string(), url: "https://gemini.google.com".to_string(), icon: Some("auto_awesome".to_string()) },
+        WebShortcut { name: "Claude".to_string(), alias: "claude".to_string(), url: "https://claude.ai".to_string(), icon: Some("psychology".to_string()) },
+    ]
+}
+
+fn default_false() -> bool { false }
 fn default_true() -> bool { true }
 fn default_hotkey() -> String { "Alt+Space".to_string() }
 fn default_theme() -> String { "dark".to_string() }
@@ -85,6 +111,8 @@ impl Default for AppConfig {
             power_failsafe: true,
             default_web_engine: default_web_engine(),
             web_bang_prefix: default_web_bang(),
+            first_run: true,
+            web_shortcuts: default_web_shortcuts(),
         }
     }
 }

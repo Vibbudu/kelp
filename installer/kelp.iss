@@ -2,7 +2,7 @@
 ; To compile, open this file in Inno Setup Compiler.
 
 #define MyAppName "Kelp"
-#define MyAppVersion "0.1.0-alpha"
+#define MyAppVersion "1.0.0"
 #define MyAppPublisher "Vibbudu"
 #define MyAppURL "https://github.com/Vibbudu/kelp"
 #define MyAppExeName "kelp.exe"
@@ -22,7 +22,7 @@ DisableProgramGroupPage=yes
 LicenseFile=..\LICENSE
 ; Output folder for the compiled setup file
 OutputDir=output
-OutputBaseFilename=KelpSetup-v0.1.0-alpha
+OutputBaseFilename=KelpSetup-v1.0.0
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern

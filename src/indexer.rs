@@ -90,10 +90,11 @@ impl Indexer {
             info!("Scanning path: {:?}", path);
             let mut batch = Vec::new();
             
-            // Walk dir, don't follow symlinks/junctions to avoid cycles
+            // Walk dir with filter_entry pruning to avoid descending into ignored subtrees
             let walker = WalkDir::new(path)
                 .follow_links(false)
-                .into_iter();
+                .into_iter()
+                .filter_entry(|e| !crate::utilities::should_exclude_dir_entry(e, &self.config));
 
             for entry in walker {
                 let entry = match entry {
@@ -106,16 +107,13 @@ impl Indexer {
                 };
 
                 let file_path = entry.path();
-                
-                // Exclude noisy developer / system directories
-                if self.should_exclude(file_path) {
-                    continue;
-                }
-
                 let full_path_str = file_path.to_string_lossy().to_string();
                 seen_paths.insert(full_path_str.clone());
 
-                // Read metadata
+                let file_type_raw = entry.file_type();
+                let is_dir = file_type_raw.is_dir();
+
+                // Read metadata for timestamps and size
                 let metadata = match entry.metadata() {
                     Ok(m) => m,
                     Err(e) => {
@@ -123,8 +121,6 @@ impl Indexer {
                         continue;
                     }
                 };
-
-                let is_dir = metadata.is_dir();
                 
                 let extension = if is_dir {
                     String::new()
@@ -215,11 +211,11 @@ impl Indexer {
             }
         }
 
-        // Clean up stale or newly-excluded files in DB
+        // Clean up stale or newly-excluded files in DB using batched deletion
         info!("Running database clean up...");
         if let Ok(db_files) = self.storage.load_all_files() {
-            let mut deleted_count = 0;
-            for db_file in db_files {
+            let mut stale_paths = Vec::new();
+            for db_file in &db_files {
                 if db_file.full_path.starts_with("shell:") {
                     continue; // UWP cleanup handled below
                 }
@@ -239,60 +235,63 @@ impl Indexer {
                 };
 
                 if should_delete {
-                    if let Err(e) = self.storage.delete_file(&db_file.full_path) {
-                        warn!("Failed to delete stale file {:?} from DB: {:?}", db_file.full_path, e);
-                    } else {
-                        deleted_count += 1;
+                    stale_paths.push(db_file.full_path.clone());
+                }
+            }
+            if !stale_paths.is_empty() {
+                match self.storage.delete_files_batch(&stale_paths) {
+                    Ok(deleted_count) => {
+                        info!("Cleaned up {} stale/excluded entries from database in batch.", deleted_count);
+                    }
+                    Err(e) => {
+                        warn!("Failed to batch delete stale files from DB: {:?}", e);
                     }
                 }
             }
-            if deleted_count > 0 {
-                info!("Cleaned up {} stale/excluded entries from database.", deleted_count);
-            }
-        }
 
-        // Discover, deduplicate, and clean-resync UWP / Microsoft Store apps
-        match Self::discover_uwp_apps() {
-            Ok(uwp_apps) => {
-                // Build set of known Application and Shortcut names from filesystem scan
-                let existing_app_names: HashSet<String> = if let Ok(db_files) = self.storage.load_all_files() {
-                    db_files
-                        .iter()
-                        .filter(|f| (f.file_type == FileType::Application || f.file_type == FileType::Shortcut) && !f.full_path.starts_with("shell:"))
-                        .map(|f| f.name.to_lowercase().trim().to_string())
-                        .collect()
-                } else {
-                    HashSet::new()
-                };
+            // Check if UWP apps are already cached in database
+            let has_uwp = db_files.iter().any(|f| f.full_path.starts_with("shell:AppsFolder"));
+            if !has_uwp {
+                // Discover, deduplicate, and clean-resync UWP / Microsoft Store apps
+                match Self::discover_uwp_apps() {
+                    Ok(uwp_apps) => {
+                        let existing_app_names: HashSet<String> = db_files
+                            .iter()
+                            .filter(|f| (f.file_type == FileType::Application || f.file_type == FileType::Shortcut) && !f.full_path.starts_with("shell:"))
+                            .map(|f| f.name.to_lowercase().trim().to_string())
+                            .collect();
 
-                let deduplicated: Vec<FileMetadata> = uwp_apps
-                    .into_iter()
-                    .filter(|app| {
-                        let name_lower = app.name.to_lowercase().trim().to_string();
-                        if existing_app_names.contains(&name_lower) {
-                            info!("Skipping duplicate UWP app '{}' (already found via filesystem)", app.name);
-                            false
-                        } else {
-                            true
+                        let deduplicated: Vec<FileMetadata> = uwp_apps
+                            .into_iter()
+                            .filter(|app| {
+                                let name_lower = app.name.to_lowercase().trim().to_string();
+                                if existing_app_names.contains(&name_lower) {
+                                    info!("Skipping duplicate UWP app '{}' (already found via filesystem)", app.name);
+                                    false
+                                } else {
+                                    true
+                                }
+                            })
+                            .collect();
+
+                        let _ = self.storage.delete_all_uwp_apps();
+
+                        let uwp_count = deduplicated.len();
+                        if !deduplicated.is_empty() {
+                            if let Err(e) = self.storage.save_files(&deduplicated) {
+                                warn!("Failed to save UWP apps to DB: {:?}", e);
+                            } else {
+                                total_indexed += uwp_count;
+                                info!("Discovered and indexed {} UWP/Store apps ({} duplicates skipped).", uwp_count, existing_app_names.len());
+                            }
                         }
-                    })
-                    .collect();
-
-                // Cleanly wipe all old UWP records and insert deduplicated set
-                let _ = self.storage.delete_all_uwp_apps();
-
-                let uwp_count = deduplicated.len();
-                if !deduplicated.is_empty() {
-                    if let Err(e) = self.storage.save_files(&deduplicated) {
-                        warn!("Failed to save UWP apps to DB: {:?}", e);
-                    } else {
-                        total_indexed += uwp_count;
-                        info!("Discovered and indexed {} UWP/Store apps ({} duplicates skipped).", uwp_count, existing_app_names.len());
+                    }
+                    Err(e) => {
+                        warn!("UWP app discovery failed: {}", e);
                     }
                 }
-            }
-            Err(e) => {
-                warn!("UWP app discovery failed: {}", e);
+            } else {
+                info!("UWP apps already cached in SQLite, skipping PowerShell discovery.");
             }
         }
 
@@ -356,7 +355,7 @@ impl Indexer {
 
     /// Exclude typical noisy development or hidden system paths
     fn should_exclude(&self, path: &Path) -> bool {
-        crate::utilities::should_exclude_path(path, &self.config.supported_extensions)
+        crate::utilities::should_exclude_path(path, &self.config)
     }
 }
 
@@ -366,20 +365,51 @@ mod tests {
 
     #[test]
     fn test_legacy_junction_exclusion() {
-        let exts = vec!["exe".to_string(), "pdf".to_string(), "txt".to_string()];
+        let mut config = crate::config::AppConfig::default();
+        config.supported_extensions = vec!["exe".to_string(), "pdf".to_string(), "txt".to_string()];
         
         // Legacy Windows junction points in Documents MUST be excluded
-        assert!(crate::utilities::should_exclude_path(Path::new("C:\\Users\\user\\Documents\\My Music"), &exts));
-        assert!(crate::utilities::should_exclude_path(Path::new("C:\\Users\\user\\Documents\\My Pictures"), &exts));
-        assert!(crate::utilities::should_exclude_path(Path::new("C:\\Users\\user\\Documents\\My Videos"), &exts));
-        assert!(crate::utilities::should_exclude_path(Path::new("C:\\Users\\user\\My Documents"), &exts));
-        assert!(crate::utilities::should_exclude_path(Path::new("C:\\Users\\user\\Application Data"), &exts));
-        assert!(crate::utilities::should_exclude_path(Path::new("C:\\Users\\user\\Local Settings"), &exts));
+        assert!(crate::utilities::should_exclude_path(Path::new("C:\\Users\\user\\Documents\\My Music"), &config));
+        assert!(crate::utilities::should_exclude_path(Path::new("C:\\Users\\user\\Documents\\My Pictures"), &config));
+        assert!(crate::utilities::should_exclude_path(Path::new("C:\\Users\\user\\Documents\\My Videos"), &config));
+        assert!(crate::utilities::should_exclude_path(Path::new("C:\\Users\\user\\My Documents"), &config));
+        assert!(crate::utilities::should_exclude_path(Path::new("C:\\Users\\user\\Application Data"), &config));
+        assert!(crate::utilities::should_exclude_path(Path::new("C:\\Users\\user\\Local Settings"), &config));
         
         // Noisy folders MUST be excluded
-        assert!(crate::utilities::should_exclude_path(Path::new("C:\\project\\node_modules\\pkg"), &exts));
-        assert!(crate::utilities::should_exclude_path(Path::new("C:\\project\\.git\\objects"), &exts));
-        assert!(crate::utilities::should_exclude_path(Path::new("C:\\project\\target\\debug"), &exts));
+        assert!(crate::utilities::should_exclude_path(Path::new("C:\\project\\node_modules\\pkg"), &config));
+        assert!(crate::utilities::should_exclude_path(Path::new("C:\\project\\.git\\objects"), &config));
+        assert!(crate::utilities::should_exclude_path(Path::new("C:\\project\\target\\debug"), &config));
+    }
+
+    #[test]
+    fn test_walkdir_entry_pruning() {
+        let temp_dir = std::env::temp_dir().join(format!("kelp_test_prune_{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()));
+        let node_modules = temp_dir.join("node_modules").join("nested_pkg");
+        std::fs::create_dir_all(&node_modules).unwrap();
+        std::fs::write(node_modules.join("file.js"), "content").unwrap();
+
+        let regular_dir = temp_dir.join("src");
+        std::fs::create_dir_all(&regular_dir).unwrap();
+        std::fs::write(regular_dir.join("main.rs"), "fn main() {}").unwrap();
+
+        let mut config = crate::config::AppConfig::default();
+        config.supported_extensions = vec!["rs".to_string(), "js".to_string()];
+
+        let visited_paths: Vec<_> = WalkDir::new(&temp_dir)
+            .follow_links(false)
+            .into_iter()
+            .filter_entry(|e| !crate::utilities::should_exclude_dir_entry(e, &config))
+            .filter_map(|e| e.ok())
+            .map(|e| e.path().to_string_lossy().to_string())
+            .collect();
+
+        // Node modules must be completely pruned — no nested files visited
+        assert!(!visited_paths.iter().any(|p| p.contains("nested_pkg") || p.contains("file.js")));
+        // Regular dir and file must be visited
+        assert!(visited_paths.iter().any(|p| p.contains("main.rs")));
+
+        let _ = std::fs::remove_dir_all(&temp_dir);
     }
 
     #[test]

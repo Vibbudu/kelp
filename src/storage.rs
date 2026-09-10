@@ -174,7 +174,8 @@ impl Storage {
     /// Clears all learning and query selection history from the database.
     pub fn clear_learning_data(&self) -> Result<()> {
         let conn = self.get_conn();
-        conn.execute("DELETE FROM query_selections", [])?;
+        conn.execute("DELETE FROM search_history", [])?;
+        conn.execute("DELETE FROM query_frequencies", [])?;
         Ok(())
     }
 
@@ -246,5 +247,91 @@ impl Storage {
             results.push(row?);
         }
         Ok(results)
+    }
+
+    /// Deletes a batch of files by full_path within a single transaction.
+    pub fn delete_files_batch(&self, paths: &[String]) -> Result<usize> {
+        if paths.is_empty() {
+            return Ok(0);
+        }
+        let mut conn = self.get_conn();
+        let tx = conn.transaction()?;
+        let mut deleted = 0;
+        {
+            let mut stmt = tx.prepare_cached("DELETE FROM files WHERE full_path = ?1")?;
+            for path in paths {
+                deleted += stmt.execute(params![path])?;
+            }
+        }
+        tx.commit()?;
+        Ok(deleted)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_clear_learning_data() {
+        let temp_dir = std::env::temp_dir().join(format!("kelp_test_storage_{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()));
+        let db_path = temp_dir.join("test.db");
+        let storage = Storage::new(&db_path).expect("Failed to create test storage");
+
+        // Insert learning records
+        storage.record_selection("test query", "C:\\test\\file.txt", 1000).expect("Failed to record selection");
+        let data = storage.get_learning_data().expect("Failed to get learning data");
+        assert_eq!(data.len(), 1);
+
+        // Clear learning data
+        storage.clear_learning_data().expect("clear_learning_data failed");
+        let data_after = storage.get_learning_data().expect("Failed to get learning data after clear");
+        assert_eq!(data_after.len(), 0);
+
+        // Cleanup
+        let _ = std::fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn test_delete_files_batch() {
+        let temp_dir = std::env::temp_dir().join(format!("kelp_test_batch_{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()));
+        let db_path = temp_dir.join("test_batch.db");
+        let storage = Storage::new(&db_path).expect("Failed to create test storage");
+
+        let files = vec![
+            FileMetadata {
+                id: None,
+                name: "file1.txt".to_string(),
+                extension: "txt".to_string(),
+                parent_folder: "C:\\test".to_string(),
+                full_path: "C:\\test\\file1.txt".to_string(),
+                modified_date: 0,
+                size: 10,
+                file_type: FileType::File,
+            },
+            FileMetadata {
+                id: None,
+                name: "file2.txt".to_string(),
+                extension: "txt".to_string(),
+                parent_folder: "C:\\test".to_string(),
+                full_path: "C:\\test\\file2.txt".to_string(),
+                modified_date: 0,
+                size: 20,
+                file_type: FileType::File,
+            },
+        ];
+
+        storage.save_files(&files).expect("Failed to save files");
+        assert_eq!(storage.load_all_files().unwrap().len(), 2);
+
+        let paths_to_delete = vec!["C:\\test\\file1.txt".to_string()];
+        let deleted = storage.delete_files_batch(&paths_to_delete).expect("delete_files_batch failed");
+        assert_eq!(deleted, 1);
+
+        let remaining = storage.load_all_files().unwrap();
+        assert_eq!(remaining.len(), 1);
+        assert_eq!(remaining[0].full_path, "C:\\test\\file2.txt");
+
+        let _ = std::fs::remove_dir_all(&temp_dir);
     }
 }

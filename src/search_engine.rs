@@ -22,7 +22,7 @@ impl SearchEngine {
     /// 2. The subset of files that matched (used to update the result cache).
     pub fn search(&self, query: &SearchQuery) -> (Vec<SearchResult>, Vec<FileMetadata>) {
         // 1. If empty query, return immediately
-        if query.terms.is_empty() && query.extension_filter.is_none() {
+        if query.terms.is_empty() && query.extension_filter.is_none() && query.semantic_extensions.is_none() {
             return (Vec::new(), Vec::new());
         }
 

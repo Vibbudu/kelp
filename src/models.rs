@@ -58,6 +58,7 @@ pub struct SearchQuery {
     pub extension_filter: Option<String>, // e.g. Some("pdf") if they typed ".pdf"
     pub terms: Vec<String>,               // Remaining terms, e.g. ["tax", "report"]
     pub term_string: String,              // Pre-joined terms to avoid allocations in match_file
+    pub semantic_extensions: Option<Vec<String>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
