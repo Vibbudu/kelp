@@ -11,7 +11,7 @@ use tao::{
     window::WindowBuilder,
     dpi::LogicalSize,
 };
-use wry::WebViewBuilder;
+use wry::{WebViewBuilder, WebContext};
 use global_hotkey::{
     GlobalHotKeyManager,
     hotkey::{HotKey, Modifiers, Code},
@@ -227,6 +227,11 @@ async fn main() {
     }
     info!("Starting Kelp Search Engine Launcher...");
 
+    // Set WebView2 user data folder globally before any WebView2 initialization
+    let webview_cache_dir = engine::utilities::get_app_data_dir().join("webview_data");
+    let _ = std::fs::create_dir_all(&webview_cache_dir);
+    std::env::set_var("WEBVIEW2_USER_DATA_FOLDER", &webview_cache_dir);
+
     // 3. Initialize Windows COM library for Shell link resolving
     unsafe {
         let _ = windows::Win32::System::Com::CoInitializeEx(
@@ -397,8 +402,10 @@ async fn main() {
     let html_content = include_str!("ui.html");
     let webview_data_dir = engine::utilities::get_app_data_dir().join("webview_data");
     let _ = std::fs::create_dir_all(&webview_data_dir);
+    let mut web_context = WebContext::new(Some(webview_data_dir));
 
     let webview = match WebViewBuilder::new(&window)
+        .with_web_context(&mut web_context)
         .with_transparent(true)
         .with_html(html_content)
         .with_ipc_handler({
@@ -444,16 +451,19 @@ async fn main() {
         Err(e) => {
             error!("FATAL: Failed to create WebView: {:?}", e);
             eprintln!("Kelp failed to create WebView: {:?}", e);
+            let crash_path = engine::utilities::get_app_data_dir().join("logs").join("webview_crash.log");
+            let _ = std::fs::write(&crash_path, format!("Kelp failed to create WebView: {:?}\n", e));
             return;
         }
     };
 
     // 10. Run Event Loop
+    let _web_context_keep_alive = web_context;
     let _tray_keep_alive = tray_icon;
     let hotkey_mgr = hotkey_manager;
     let latest_query_id = Arc::new(AtomicU64::new(0));
     event_loop.run(move |event, _, control_flow| {
-        let _ = &_tray_keep_alive; // Force moving into closure to keep tray registered forever
+        let _ = (&_tray_keep_alive, &_web_context_keep_alive); // Force moving into closure to keep tray and context registered forever
         *control_flow = ControlFlow::Wait;
 
         match event {

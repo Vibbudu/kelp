@@ -30,6 +30,8 @@ MinVersion=10.0
 ; Auto-close running launcher instances during install/uninstall
 CloseApplications=yes
 AppMutex=KelpMutex_3f6c8d10-7e82-4f36-9a2c-982d6b38c20d
+PrivilegesRequired=lowest
+PrivilegesRequiredOverridesAllowed=commandline dialog
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
@@ -50,7 +52,7 @@ Source: "..\target\release\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignorevers
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
 Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
-Name: "{userstartup}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"; Tasks: runatstartup
+Name: "{autostartup}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"; Tasks: runatstartup
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
@@ -61,4 +63,5 @@ Type: files; Name: "{localappdata}\{#MyAppName}\kelp.db"
 Type: files; Name: "{localappdata}\{#MyAppName}\kelp.db-shm"
 Type: files; Name: "{localappdata}\{#MyAppName}\kelp.db-wal"
 Type: filesandordirs; Name: "{localappdata}\{#MyAppName}\logs"
+Type: filesandordirs; Name: "{localappdata}\{#MyAppName}\webview_data"
 Type: dirifempty; Name: "{localappdata}\{#MyAppName}"
