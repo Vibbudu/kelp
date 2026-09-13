@@ -15,7 +15,7 @@ Thank you for choosing to contribute to Kelp! We welcome help in fixing bugs, im
 
 ---
 
-## 🚀 How to Contribute
+##  How to Contribute
 
 ## 1. Fork the Repository
 Create a personal fork of the repository and clone it locally:
