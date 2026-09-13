@@ -4,7 +4,7 @@ Thank you for choosing to contribute to Kelp! We welcome help in fixing bugs, im
 
 ---
 
-## 🛠️ Code Structure
+##  Code Structure
 
 - `/src/lib.rs` - Library module definitions and re-exports.
 - `/src/main.rs` - Main executable startup, window initialization, hotkey hook, and Event Loop.
