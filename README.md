@@ -1,98 +1,75 @@
 <div align="center">
-  <img src="assets/logo.png" alt="Kelp Logo" width="96" height="96" />
+  <img src="assets/logo.png" alt="Kelp Logo" width="96" />
+
+  <h1>Kelp</h1>
+
+  <p>
+    A fast, lightweight launcher for Windows.
+    <br />
+    Find anything. Open anything. Get out of the way.
+  </p>
+
+  <p>
+    <a href="https://kelp-launcher.vercel.app/">Website</a>
+    &nbsp; · &nbsp;
+    <a href="https://github.com/Vibbudu/kelp/releases">Download</a>
+    &nbsp; · &nbsp;
+    <a href="https://github.com/Vibbudu/kelp/issues">Issues</a>
+  </p>
+
+  <p>
+    <img src="https://img.shields.io/badge/status-alpha-orange" alt="Alpha" />
+    <img src="https://img.shields.io/badge/platform-Windows-brightgreen" alt="Windows" />
+    <img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT" />
+  </p>
 </div>
 
-<h1 align="center">Kelp</h1>
-
-<p align="center">
-  <strong>A fast, keyboard-driven desktop launcher for Windows.</strong><br />
-  Sub-millisecond search. Zero idle CPU. No bloat.
-</p>
-
-<p align="center">
-  <a href="https://kelp-launcher.vercel.app/">kelp-launcher.vercel.app</a>
-</p>
-
-<p align="center">
-  <a href="https://github.com/Vibbudu/kelp/actions">
-    <img src="https://github.com/Vibbudu/kelp/actions/workflows/release.yml/badge.svg" alt="Build Status" />
-  </a>
-  <img src="https://img.shields.io/badge/status-alpha-orange" alt="Alpha Status" />
-  <img src="https://img.shields.io/badge/license-MIT-blue" alt="License" />
-  <img src="https://img.shields.io/badge/platform-Windows-brightgreen" alt="Platform" />
-</p>
-
 ---
+
+## About
+
+Kelp is a keyboard-driven launcher for Windows.
+
+Press `Alt + Space`, type what you're looking for, and open it.
+
+It is built to be fast, simple, and lightweight, with real-time indexing and intelligent search that gets out of the way when you're done.
 
 ## Downloads
 
-> [!NOTE]
-> Kelp is currently in **public alpha**. Expect rough edges — please report anything unexpected.
+Kelp is currently in public alpha. Unexpected issues may occur.
 
-Grab the latest installer from the [Releases](https://github.com/Vibbudu/kelp/releases) page:
+<a href="https://github.com/Vibbudu/kelp/releases">Download Kelp</a>
 
-1. Download `KelpSetup-v1.0.0.exe`.
-2. Run the installer.
-3. Launch Kelp from the Start Menu or desktop shortcut.
+## Features
 
-> [!WARNING]
-> During the installer wizard, **install Kelp to a folder under `Documents`** (e.g. `C:\Users\<you>\Documents\Kelp`) rather than the default `Program Files`. Installing inside `Program Files` is currently causing failures for some users due to permission restrictions on that directory. This will be fixed in a future release.
+* Fast search
+* Fuzzy matching
+* Application and file search
+* Real-time indexing
+* Search by file extension
+* Usage-based result ranking
+* Keyboard-first controls
+* Low resource usage
 
----
+## Keyboard shortcuts
 
-## Why Kelp
+| Shortcut      | Action           |
+| ------------- | ---------------- |
+| `Alt + Space` | Open Kelp        |
+| `↑` `↓`       | Navigate results |
+| `Enter`       | Open             |
+| `Esc`         | Close            |
 
-Most launchers ship as an Electron app wrapped around a search box. Kelp is built the other way around: a lock-free Rust indexing core paired with a thin, hardware-accelerated webview shell. The result is a launcher that opens instantly, searches instantly, and disappears from your resource monitor when idle.
+## Development
 
-- **Sub-millisecond search** — fully in-memory candidate indexing over lock-free read structures.
-- **Tiered matching** — queries are evaluated through Exact, Prefix, Acronym, CamelCase, Substring, and Fuzzy tiers in sequence, so the most relevant result always wins.
-- **Adaptive ranking** — learns from recency and launch frequency to surface what you actually use.
-- **Real-time indexing** — a background file watcher keeps the index current as files are created, moved, or deleted.
-- **Extension filters** — scope a search with a raw extension, e.g. `.pdf report` or `.exe`.
-- **Minimal footprint** — zero idle CPU, negligible memory overhead.
-- **Native feel** — a Fluent-inspired glassmorphic interface that follows your system theme.
+Kelp is built for Windows using Rust.
 
----
+### Requirements
 
-## Keyboard Shortcuts
+* Windows 10 or later
+* Rust and Cargo
 
-| Shortcut | Action |
-| --- | --- |
-| `Alt` + `Space` | Show / hide Kelp |
-| `↑` / `↓` | Navigate results |
-| `Enter` | Launch the selected item |
-| `Esc` | Hide Kelp |
-
----
-
-## Architecture
-
-Kelp separates the interface from the search engine with a thin-client design: the UI never touches the index directly, and the Rust core never blocks on rendering.
-
-```mermaid
-graph TD
-    UI[HTML/CSS/JS WebView UI] <-->|IPC Messages| Main[Main Event Loop · Tao/Wry]
-    Main -->|Spawn Blocking| Bridge[UI Bridge Service]
-    Bridge <-->|In-Memory Read Lock| Index[Memory Index Search]
-    Bridge <-->|Queries/Saves| DB[(SQLite Database)]
-    Bridge <-->|Watch Events| Watcher[File Watcher · Notify]
-    Bridge <-->|Record Selection| Learning[Learning Engine]
-```
-
-- **Search core** — Rust, zero-copy candidate scanning under read locks.
-- **SQLite** — persists the whitelisted file index cache and selection history.
-- **File watcher** — propagates filesystem events to the in-memory index in real time.
-
----
-
-## Building from Source
-
-### Prerequisites
-
-- [Rust & Cargo](https://rustup.rs/) (stable channel)
-- Windows 10 or 11
-
-### Development build
+### Build
 
 ```bash
 git clone https://github.com/Vibbudu/kelp.git
@@ -100,45 +77,30 @@ cd kelp
 cargo run
 ```
 
-### Release build
+For a release build:
 
 ```bash
 cargo build --release
 ```
 
-The compiled binary is written to `target/release/kelp.exe`.
-
----
-
-## Configuration
-
-On first launch, Kelp writes a `config.json` to `%LOCALAPPDATA%\Kelp\config.json`. Whitelisted file extensions can be edited there:
-
-```json
-{
-  "supported_extensions": [
-    "exe", "lnk", "pdf", "docx", "xlsx", "txt", "md", "png", "jpg", "zip", "rs"
-  ]
-}
-```
-
----
-
 ## Roadmap
 
-- [ ] System tray integration for background state management
-- [ ] Web search keyword triggers (e.g. `g! query` → Google)
-- [ ] Customizable indexing paths and blacklists
-- [ ] Native calculator and unit conversion
+Kelp is actively developed.
 
----
+Planned features include:
+
+* System tray support
+* Web search shortcuts
+* Custom indexing paths
+* Calculator and unit conversion
+* More ways to customize search
 
 ## Contributing
 
-Contributions are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) to get started.
+Contributions, ideas, and bug reports are welcome.
 
----
+Open an issue or submit a pull request to get involved.
 
 ## License
 
-Distributed under the MIT License. See [LICENSE](LICENSE) for details.
+Kelp is released under the MIT License.
