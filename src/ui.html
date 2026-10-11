@@ -5,10 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Search Launcher</title>
 
-    <!-- Google Fonts -->
+    <!-- Google Fonts: Inter (Primary UI) + Instrument Serif (Accents & Titles) + JetBrains Mono -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700&family=Inter:wght@400;500;600&family=Geist:wght@500;600&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
 
     <!-- Material Symbols Outlined -->
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
@@ -205,7 +205,7 @@
             border-radius: 9999px;
             padding: 4px 16px;
             cursor: pointer;
-            font-family: 'Geist', sans-serif;
+            font-family: 'Inter', sans-serif;
             font-size: 12px;
             font-weight: 500;
             letter-spacing: 0.05em;
@@ -233,6 +233,203 @@
         .chip:active {
             transform: scale(0.97);
             transition: transform 100ms ease-out;
+        }
+
+        /* ===== AUDIO / MEDIA CONTROLS WIDGET ===== */
+        #media-widget {
+            display: none;
+            padding: 8px 16px 12px 16px;
+            animation: mediaSlideIn 180ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        .media-card {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 10px 14px;
+            border-radius: var(--radius-lg);
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--border-color);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            transition: all 180ms ease;
+        }
+
+        html.light .media-card {
+            background: rgba(0, 0, 0, 0.03);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+        }
+
+        .media-artwork-box {
+            width: 48px;
+            height: 48px;
+            border-radius: 10px;
+            overflow: hidden;
+            flex-shrink: 0;
+            background: var(--surface-variant);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+            position: relative;
+        }
+
+        .media-artwork-img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 9px;
+            display: block;
+        }
+
+        .media-artwork-fallback {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 100%;
+        }
+
+        .media-info {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            min-width: 0;
+            flex: 1;
+        }
+
+        .media-top-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            min-width: 0;
+        }
+
+        .media-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-primary);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            letter-spacing: -0.015em;
+        }
+
+        .media-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 10.5px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            background: rgba(142, 149, 160, 0.15);
+            padding: 2px 7px;
+            border-radius: 999px;
+            flex-shrink: 0;
+            letter-spacing: 0.02em;
+        }
+
+        .equalizer-bars {
+            display: inline-flex;
+            align-items: flex-end;
+            gap: 2px;
+            height: 10px;
+        }
+
+        .equalizer-bar {
+            width: 2px;
+            height: 10px;
+            background: var(--primary);
+            border-radius: 1px;
+            animation: eqBounce 1s ease-in-out infinite alternate;
+        }
+
+        .equalizer-bar:nth-child(1) { animation-delay: 0.1s; height: 6px; }
+        .equalizer-bar:nth-child(2) { animation-delay: 0.3s; height: 10px; }
+        .equalizer-bar:nth-child(3) { animation-delay: 0.2s; height: 7px; }
+
+        .media-badge.paused .equalizer-bar {
+            animation: none !important;
+            height: 3px !important;
+            opacity: 0.5;
+        }
+
+        @keyframes eqBounce {
+            0% { height: 3px; }
+            50% { height: 10px; }
+            100% { height: 5px; }
+        }
+
+        .media-artist {
+            font-size: 12px;
+            color: var(--text-secondary);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            letter-spacing: -0.01em;
+        }
+
+        .media-controls {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-shrink: 0;
+        }
+
+        .media-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-primary);
+            cursor: pointer;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 120ms ease;
+            outline: none;
+        }
+
+        .media-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: scale(1.06);
+        }
+
+        html.light .media-btn:hover {
+            background: rgba(0, 0, 0, 0.06);
+        }
+
+        .media-btn:active {
+            transform: scale(0.92);
+        }
+
+        .media-btn .material-symbols-outlined {
+            font-size: 19px;
+        }
+
+        .media-play-btn {
+            background: var(--primary) !important;
+            color: white !important;
+            width: 36px;
+            height: 36px;
+            box-shadow: 0 2px 10px rgba(0, 120, 212, 0.4);
+        }
+
+        .media-play-btn:hover {
+            filter: brightness(1.12);
+            transform: scale(1.08);
+        }
+
+        .media-play-btn .material-symbols-outlined {
+            font-size: 21px;
+        }
+
+        @keyframes mediaSlideIn {
+            from { opacity: 0; transform: translateY(-4px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
         /* ===== RESULTS AREA ===== */
@@ -264,6 +461,7 @@
             position: relative;
             display: flex;
             flex-direction: column;
+            padding-bottom: 6px;
         }
 
         /* Sliding Selection Overlay */
@@ -329,7 +527,7 @@
             gap: 6px;
             border-bottom: 1px solid var(--border-color);
             background: rgba(0, 0, 0, 0.03);
-            font-family: 'Geist', sans-serif;
+            font-family: 'Inter', sans-serif;
             font-size: 12px;
             font-weight: 500;
             color: var(--text-secondary);
@@ -345,7 +543,7 @@
             cursor: pointer;
             padding: 4px 8px;
             border-radius: var(--radius-sm);
-            font-family: 'Geist', sans-serif;
+            font-family: 'Inter', sans-serif;
             font-size: 12px;
             font-weight: 500;
             display: flex;
@@ -370,6 +568,132 @@
             overflow: hidden;
             text-overflow: ellipsis;
             flex: 1;
+        }
+
+        /* ===== CONTEXT ACTIONS PREVIEW CARD ===== */
+        #context-preview-container {
+            display: none;
+            padding: 8px 16px 10px 16px;
+            border-bottom: 1px solid var(--border-color);
+            background: rgba(0, 0, 0, 0.08);
+            animation: previewFadeIn 120ms ease-out;
+        }
+
+        @keyframes previewFadeIn {
+            from { opacity: 0; transform: translateY(-4px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .context-preview-card {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 8px 12px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius);
+        }
+
+        html.light .context-preview-card {
+            background: rgba(0, 0, 0, 0.02);
+        }
+
+        .preview-media-box {
+            width: 76px;
+            height: 76px;
+            min-width: 76px;
+            border-radius: 8px;
+            background: rgba(0, 0, 0, 0.25);
+            border: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            position: relative;
+        }
+
+        html.light .preview-media-box {
+            background: rgba(0, 0, 0, 0.05);
+        }
+
+        #preview-image-el {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            border-radius: 7px;
+            display: none;
+        }
+
+        #preview-fallback-icon {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 100%;
+        }
+
+        #preview-fallback-icon span {
+            font-size: 34px;
+            color: var(--primary);
+            font-variation-settings: 'FILL' 1;
+        }
+
+        .preview-details {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: 3px;
+        }
+
+        .preview-title {
+            font-family: 'Inter', sans-serif;
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-primary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            line-height: 1.25;
+        }
+
+        .preview-path {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            color: var(--text-secondary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            line-height: 1.2;
+            opacity: 0.85;
+        }
+
+        .preview-meta-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 11px;
+            color: var(--text-secondary);
+            margin-top: 2px;
+        }
+
+        .file-type-pill {
+            font-family: 'Inter', sans-serif;
+            font-size: 10px;
+            font-weight: 600;
+            line-height: 14px;
+            letter-spacing: 0.06em;
+            color: var(--primary);
+            background: rgba(0, 120, 212, 0.15);
+            padding: 1px 6px;
+            border-radius: var(--radius-sm);
+            text-transform: uppercase;
+        }
+
+        .preview-meta-dot {
+            opacity: 0.4;
+            font-size: 8px;
         }
 
         /* ===== RESULT LEFT ===== */
@@ -422,7 +746,7 @@
         }
 
         .result-path {
-            font-family: 'Geist', sans-serif;
+            font-family: 'Inter', sans-serif;
             font-size: 11px;
             font-weight: 400;
             line-height: 16px;
@@ -443,7 +767,7 @@
         }
 
         .result-type {
-            font-family: 'Geist', sans-serif;
+            font-family: 'Inter', sans-serif;
             font-size: 10px;
             font-weight: 600;
             line-height: 14px;
@@ -497,7 +821,7 @@
             border: 1px solid rgba(59, 130, 246, 0.35);
             font-size: 11px;
             color: #60a5fa;
-            font-family: 'Geist', sans-serif;
+            font-family: 'Inter', sans-serif;
             font-weight: 500;
             letter-spacing: 0.02em;
         }
@@ -767,7 +1091,7 @@
 
         #debug-stats {
             display: none;
-            font-family: 'Geist', monospace;
+            font-family: 'JetBrains Mono', monospace;
             font-size: 10px;
             color: var(--text-secondary);
             padding-left: 8px;
@@ -779,7 +1103,7 @@
             border-radius: var(--radius);
             background: transparent;
             color: var(--primary);
-            font-family: 'Geist', sans-serif;
+            font-family: 'Inter', sans-serif;
             font-size: 12px;
             font-weight: 500;
             letter-spacing: 0.05em;
@@ -1205,7 +1529,7 @@
             color: #60CDFF;
             padding: 4px 10px;
             border-radius: 6px;
-            font-family: 'Geist', monospace;
+            font-family: 'JetBrains Mono', monospace;
             font-size: 12px;
             font-weight: 600;
         }
@@ -1223,7 +1547,7 @@
             padding: 4px 10px;
             border-radius: 6px;
             font-size: 11.5px;
-            font-family: 'Geist', monospace;
+            font-family: 'JetBrains Mono', monospace;
             cursor: pointer;
             transition: all 120ms ease;
         }
@@ -1256,7 +1580,7 @@
             color: #60CDFF;
             padding: 7px 16px;
             border-radius: 8px;
-            font-family: 'Geist', monospace;
+            font-family: 'JetBrains Mono', monospace;
             font-size: 13px;
             font-weight: 600;
             cursor: pointer;
@@ -1299,7 +1623,7 @@
             color: #60CDFF;
             padding: 6px 12px;
             border-radius: 8px;
-            font-family: 'Geist', monospace;
+            font-family: 'JetBrains Mono', monospace;
             font-size: 13px;
             font-weight: 600;
             width: 70px;
@@ -1657,7 +1981,7 @@
             opacity: 0;
             pointer-events: none;
             transition: opacity 0.75s cubic-bezier(0.16, 1, 0.3, 1);
-            font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
             color: #ffffff;
             user-select: none;
             overflow: hidden;
@@ -2442,6 +2766,43 @@
         </div>
     </div>
 
+    <!-- Audio / Media Controls Widget -->
+    <div id="media-widget" class="media-widget">
+        <div class="media-card">
+            <div class="media-artwork-box">
+                <img id="media-artwork-img" class="media-artwork-img" src="" alt="Album Art" style="display: none;" />
+                <div id="media-artwork-fallback" class="media-artwork-fallback">
+                    <span class="material-symbols-outlined" style="font-size: 24px; color: var(--text-secondary);">music_note</span>
+                </div>
+            </div>
+            <div class="media-info">
+                <div class="media-top-row">
+                    <span class="media-title" id="media-title">No Audio Playing</span>
+                    <span class="media-badge" id="media-badge">
+                        <span class="equalizer-bars">
+                            <span class="equalizer-bar"></span>
+                            <span class="equalizer-bar"></span>
+                            <span class="equalizer-bar"></span>
+                        </span>
+                        <span id="media-app-name">Audio</span>
+                    </span>
+                </div>
+                <div class="media-artist" id="media-artist">Unknown Artist</div>
+            </div>
+            <div class="media-controls">
+                <button class="media-btn" id="media-prev-btn" onclick="sendMediaCommand('prev')" title="Previous Track">
+                    <span class="material-symbols-outlined">skip_previous</span>
+                </button>
+                <button class="media-btn media-play-btn" id="media-play-btn" onclick="sendMediaCommand('toggle')" title="Play / Pause">
+                    <span class="material-symbols-outlined" id="media-play-icon">play_arrow</span>
+                </button>
+                <button class="media-btn" id="media-next-btn" onclick="sendMediaCommand('next')" title="Next Track">
+                    <span class="material-symbols-outlined">skip_next</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Breadcrumb Bar (Folder Navigation) -->
     <div id="breadcrumb-bar">
         <button class="breadcrumb-back" id="breadcrumb-back-btn" onclick="exitFolderBrowse()">
@@ -2452,16 +2813,24 @@
     </div>
 
     <!-- Context Actions Preview Component (Right Arrow Preview) -->
-    <div id="context-preview-container" style="display: none; padding: 12px 18px; border-bottom: 1px solid var(--border-color); background: rgba(0,0,0,0.18);">
-        <div id="preview-image-box" style="display: none; width: 100%; text-align: center; max-height: 220px; overflow: hidden; border-radius: 12px; background: rgba(0,0,0,0.3); padding: 8px; margin-bottom: 8px; border: 1px solid var(--border-color);">
-            <img id="preview-image-el" style="max-height: 200px; max-width: 100%; object-fit: contain; border-radius: 8px;" alt="Preview" />
-        </div>
-        <div id="preview-meta-box" style="display: flex; align-items: center; justify-content: space-between; font-size: 12px; color: var(--text-secondary);">
-            <div style="display: flex; gap: 12px; align-items: center;">
-                <span id="preview-meta-ext" class="file-type-pill" style="font-size: 10px; padding: 2px 6px;"></span>
-                <span id="preview-meta-size"></span>
+    <div id="context-preview-container">
+        <div class="context-preview-card">
+            <div class="preview-media-box" id="preview-image-box">
+                <img id="preview-image-el" alt="Preview" />
+                <div id="preview-fallback-icon">
+                    <span class="material-symbols-outlined" id="preview-fallback-symbol" aria-hidden="true">description</span>
+                </div>
             </div>
-            <span id="preview-meta-date"></span>
+            <div class="preview-details">
+                <div class="preview-title" id="preview-filename"></div>
+                <div class="preview-path" id="preview-filepath"></div>
+                <div class="preview-meta-row" id="preview-meta-box">
+                    <span id="preview-meta-ext" class="file-type-pill"></span>
+                    <span id="preview-meta-size"></span>
+                    <span class="preview-meta-dot" id="preview-meta-dot">•</span>
+                    <span id="preview-meta-date"></span>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -2805,89 +3174,6 @@
         </div>
     </div>
 
-    <!-- Breadcrumb Bar (Folder Navigation) -->
-    <div id="breadcrumb-bar">
-        <button class="breadcrumb-back" id="breadcrumb-back-btn" onclick="exitFolderBrowse()">
-            <span class="material-symbols-outlined" aria-hidden="true">arrow_back</span>
-            Back
-        </button>
-        <span class="breadcrumb-path" id="breadcrumb-path"></span>
-    </div>
-
-    <!-- Shutdown Timer Panel -->
-    <div id="timer-panel">
-        <div class="timer-header">
-            <div class="timer-header-top">
-                <div class="timer-header-left">
-                    <div class="timer-icon-box">
-                        <span class="material-symbols-outlined" aria-hidden="true">power_settings_new</span>
-                    </div>
-                    <div>
-                        <div class="timer-title">Schedule Shutdown</div>
-                        <div class="timer-subtitle">System Utility</div>
-                    </div>
-                </div>
-                <div class="timer-header-right">
-                    <span class="timer-value" id="timer-value-display">1h</span>
-                    <button class="timer-schedule-btn" onclick="executeTimerAction()">Schedule</button>
-                </div>
-            </div>
-            <div class="timer-chips" id="timer-chips">
-                <button class="timer-chip" onclick="setTimerPreset(0)">15m</button>
-                <button class="timer-chip" onclick="setTimerPreset(1)">30m</button>
-                <button class="timer-chip active" onclick="setTimerPreset(2)">1h</button>
-                <button class="timer-chip" onclick="setTimerPreset(3)">2h</button>
-            </div>
-            <div class="timer-slider-container">
-                <div class="timer-slider-wrapper">
-                    <div class="timer-slider-track"></div>
-                    <div class="timer-slider-fill" id="timer-slider-fill" style="width: 66.6%;"></div>
-                    <div class="timer-slider-thumb" id="timer-slider-thumb" style="left: calc(66.6% - 9px);"></div>
-                    <input type="range" min="0" max="3" step="1" value="2" class="timer-slider-input" id="timer-slider" oninput="onTimerSliderInput(this.value)">
-                </div>
-                <div class="timer-slider-labels">
-                    <span class="timer-slider-label">15m</span>
-                    <span class="timer-slider-label">30m</span>
-                    <span class="timer-slider-label active">1h</span>
-                    <span class="timer-slider-label">2h</span>
-                </div>
-            </div>
-        </div>
-        <div class="timer-alternatives">
-            <button class="timer-alt-btn" onclick="executeSystemCommand('rundll32.exe powrprof.dll,SetSuspendState 0,1,0')">
-                <span class="material-symbols-outlined" aria-hidden="true">bedtime</span>
-                Sleep instead
-            </button>
-            <button class="timer-alt-btn" onclick="executeSystemCommand('shutdown /r /t 0')">
-                <span class="material-symbols-outlined" aria-hidden="true">restart_alt</span>
-                Restart
-            </button>
-        </div>
-    </div>
-
-    <!-- Power Action Confirmation Panel (Failsafe) -->
-    <div id="confirm-panel">
-        <div class="confirm-card">
-            <div class="confirm-icon-box" id="confirm-icon-box">
-                <span class="material-symbols-outlined" id="confirm-icon" aria-hidden="true">power_settings_new</span>
-            </div>
-            <div class="confirm-content">
-                <div class="confirm-title" id="confirm-title">Are you sure you want to shut down?</div>
-                <div class="confirm-subtitle" id="confirm-subtitle">All apps will close and your PC will turn off. Any unsaved work will be lost.</div>
-            </div>
-        </div>
-        <div class="confirm-actions">
-            <button class="confirm-btn confirm-cancel-btn" id="confirm-cancel-btn" onclick="cancelPowerConfirmation()">
-                Cancel
-                <span class="confirm-key-hint">Esc</span>
-            </button>
-            <button class="confirm-btn confirm-execute-btn" id="confirm-execute-btn" onclick="executeConfirmedPowerAction()">
-                <span class="material-symbols-outlined" id="confirm-btn-icon" aria-hidden="true">power_settings_new</span>
-                <span id="confirm-btn-label">Shut Down</span>
-                <span class="confirm-key-hint">↵</span>
-            </button>
-        </div>
-    </div>
 
     <!-- Results Area -->
     <div id="results-container">
@@ -2922,6 +3208,14 @@
     const footer = document.getElementById('footer');
     const breadcrumbBar = document.getElementById('breadcrumb-bar');
     const breadcrumbPath = document.getElementById('breadcrumb-path');
+    const mediaWidget = document.getElementById('media-widget');
+    const mediaArtworkImg = document.getElementById('media-artwork-img');
+    const mediaArtworkFallback = document.getElementById('media-artwork-fallback');
+    const mediaTitle = document.getElementById('media-title');
+    const mediaArtist = document.getElementById('media-artist');
+    const mediaAppName = document.getElementById('media-app-name');
+    const mediaBadge = document.getElementById('media-badge');
+    const mediaPlayIcon = document.getElementById('media-play-icon');
 
     // ===== State =====
     let rawResults = [];
@@ -2931,6 +3225,8 @@
     let hideTimeout = null;
     let lastQuery = "";
     let currentSearchQueryId = 0;
+    let currentMediaState = null;
+    let mediaPollInterval = null;
 
     // Folder drill-down state
     let isBrowsingFolder = false;
@@ -2963,6 +3259,81 @@
     }
     applySystemTheme();
     window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applySystemTheme);
+
+    // ===== Audio / Media Controls Management =====
+    window.setMediaState = function(state) {
+        currentMediaState = state;
+        updateMediaWidget();
+    };
+
+    function updateMediaWidget() {
+        if (!mediaWidget) return;
+        const query = searchInput ? searchInput.value.trim() : "";
+
+        // Only show if search input is empty AND media session is active AND not in special sub-panels
+        const shouldShow = (query.length === 0) &&
+            currentMediaState &&
+            currentMediaState.is_active &&
+            !isShowingSettings &&
+            !isBrowsingFolder &&
+            !isShowingActions &&
+            !isShowingTimer &&
+            !isShowingConfirm;
+
+        if (shouldShow) {
+            mediaWidget.style.display = 'block';
+            mediaTitle.textContent = currentMediaState.title || "Unknown Track";
+            mediaArtist.textContent = currentMediaState.artist || (currentMediaState.album || "Unknown Artist");
+            mediaAppName.textContent = currentMediaState.source_app || "Audio";
+
+            if (currentMediaState.is_playing) {
+                mediaPlayIcon.textContent = 'pause';
+                mediaBadge.classList.remove('paused');
+            } else {
+                mediaPlayIcon.textContent = 'play_arrow';
+                mediaBadge.classList.add('paused');
+            }
+
+            if (currentMediaState.thumbnail_base64 && currentMediaState.thumbnail_base64.length > 0) {
+                mediaArtworkImg.src = "data:image/png;base64," + currentMediaState.thumbnail_base64;
+                mediaArtworkImg.style.display = 'block';
+                mediaArtworkFallback.style.display = 'none';
+            } else {
+                mediaArtworkImg.style.display = 'none';
+                mediaArtworkFallback.style.display = 'flex';
+            }
+        } else {
+            mediaWidget.style.display = 'none';
+        }
+        triggerResize();
+    }
+
+    function sendMediaCommand(action) {
+        if (window.ipc) {
+            window.ipc.postMessage(JSON.stringify({ type: 'media_control', action: action }));
+        }
+    }
+
+    function startMediaPolling() {
+        stopMediaPolling();
+        mediaPollInterval = setInterval(() => {
+            if (launcher.classList.contains('launcher-visible') &&
+                searchInput &&
+                searchInput.value.trim().length === 0 &&
+                !isShowingSettings) {
+                if (window.ipc) {
+                    window.ipc.postMessage(JSON.stringify({ type: 'get_media_state' }));
+                }
+            }
+        }, 1800);
+    }
+
+    function stopMediaPolling() {
+        if (mediaPollInterval) {
+            clearInterval(mediaPollInterval);
+            mediaPollInterval = null;
+        }
+    }
 
     // ===== Escape HTML =====
     function escapeHtml(text) {
@@ -3038,6 +3409,24 @@
             return { icon: 'close', color: '#EF5350' };
         }
 
+        if (fileType === 'windowssetting' || (metadata.match_type === 'WindowsSetting') || (metadata.parent_folder && (metadata.parent_folder.startsWith('Settings') || metadata.parent_folder.startsWith('Quick Action') || metadata.parent_folder.startsWith('Control Panel')))) {
+            if (name.includes('display') || name.includes('monitor') || name.includes('resolution')) return { icon: 'monitor', color: '#0078D4' };
+            if (name.includes('sound') || name.includes('volume') || name.includes('audio') || name.includes('mic')) return { icon: 'volume_up', color: '#0078D4' };
+            if (name.includes('bluetooth')) return { icon: 'bluetooth', color: '#0078D4' };
+            if (name.includes('wifi') || name.includes('network') || name.includes('ethernet') || name.includes('internet')) return { icon: 'wifi', color: '#0078D4' };
+            if (name.includes('dark') || name.includes('light') || name.includes('theme') || name.includes('color')) return { icon: 'contrast', color: '#0078D4' };
+            if (name.includes('recycle') || name.includes('trash')) return { icon: 'delete_sweep', color: '#0078D4' };
+            if (name.includes('lock')) return { icon: 'lock', color: '#0078D4' };
+            if (name.includes('battery') || name.includes('power')) return { icon: 'energy_savings_leaf', color: '#0078D4' };
+            if (name.includes('storage') || name.includes('disk')) return { icon: 'hard_drive', color: '#0078D4' };
+            if (name.includes('update')) return { icon: 'system_update', color: '#0078D4' };
+            if (name.includes('security') || name.includes('defender') || name.includes('firewall')) return { icon: 'shield', color: '#0078D4' };
+            if (name.includes('app') || name.includes('program') || name.includes('startup')) return { icon: 'apps', color: '#0078D4' };
+            if (name.includes('task manager')) return { icon: 'monitoring', color: '#0078D4' };
+            if (name.includes('device manager')) return { icon: 'memory', color: '#0078D4' };
+            return { icon: 'settings', color: '#0078D4' };
+        }
+
         if (fileType === 'application' || fileType === 'shortcut') {
             if (name.includes('chrome') || name.includes('browser')) return { icon: 'public', color: '#4285F4' };
             if (name.includes('firefox')) return { icon: 'public', color: '#FF7139' };
@@ -3088,8 +3477,10 @@
         if (ft === 'file') return 'FILE';
         if (ft === 'websearch') return 'WEB';
         if (ft === 'systemcommand') return 'SYSTEM';
+        if (ft === 'windowssetting') return 'SETTING';
         if (ft === 'webshortcut') return 'SHORTCUT';
         if (ft === 'killprocess') return 'PROCESS';
+        if (ft === 'actionoption') return 'ACTION';
         return fileType.toUpperCase();
     }
 
@@ -3310,6 +3701,11 @@
         if (searchArea) searchArea.style.display = 'flex';
         renderResults();
         updateChipStyles();
+        if (window.ipc) {
+            window.ipc.postMessage(JSON.stringify({ type: 'get_media_state' }));
+        }
+        updateMediaWidget();
+        startMediaPolling();
         setTimeout(() => {
             searchInput.focus();
         }, 30);
@@ -3329,6 +3725,7 @@
     function hideLauncher() {
         if (typeof isOnboardingActive !== 'undefined' && isOnboardingActive) return;
         if (hideTimeout) return;
+        stopMediaPolling();
         launcher.classList.remove('launcher-visible');
         launcher.classList.add('launcher-exit');
         hideTimeout = setTimeout(() => {
@@ -3576,7 +3973,7 @@
                         </div>
                         <div class="result-right">
                             <span class="result-type">${displayType}</span>
-                            ${displayType === 'ACTION OPTION' ? '' : '<span class="result-arrow material-symbols-outlined" aria-hidden="true">arrow_forward_ios</span>'}
+                            ${(displayType === 'ACTION' || displayType === 'ACTION OPTION') ? '' : '<span class="result-arrow material-symbols-outlined" aria-hidden="true">arrow_forward_ios</span>'}
                         </div>
                     `;
                 }
@@ -3593,6 +3990,12 @@
                         if (result.match_type === 'SystemCommand') {
                             setSelectedIndex(index);
                             executeSystemCommand(result.metadata.full_path);
+                            return;
+                        }
+                        if (result.match_type === 'WindowsSetting' || result.metadata.full_path.startsWith('action:') || result.metadata.full_path.startsWith('ms-settings:')) {
+                            setSelectedIndex(index);
+                            window.ipc.postMessage(JSON.stringify({ type: 'execute_setting', action: result.metadata.full_path }));
+                            hideLauncher();
                             return;
                         }
                     }
@@ -3648,6 +4051,12 @@
     function executeSelected() {
         const rows = resultsList.querySelectorAll('.result-row:not(.row-exit)');
         if (selectedIndex >= 0 && selectedIndex < rows.length) {
+            if (isShowingActions) {
+                if (selectedIndex >= 0 && selectedIndex < actionItems.length) {
+                    actionItems[selectedIndex].execute();
+                }
+                return;
+            }
             const activeRow = rows[selectedIndex];
             if (activeRow) {
                 const path = activeRow.getAttribute('data-path');
@@ -3661,6 +4070,12 @@
 
                 if (fileType === 'systemcommand') {
                     executeSystemCommand(path);
+                    return;
+                }
+
+                if (path.startsWith('action:') || path.startsWith('ms-settings:') || fileType === 'windowssetting') {
+                    window.ipc.postMessage(JSON.stringify({ type: 'execute_setting', action: path }));
+                    hideLauncher();
                     return;
                 }
 
@@ -3770,49 +4185,91 @@
             isTimer: false
         });
 
-        // Hide normal back button on breadcrumb bar for actions
-        document.getElementById('breadcrumb-back-btn').style.display = 'none';
+        // Setup breadcrumb bar for actions
+        const backBtn = document.getElementById('breadcrumb-back-btn');
+        if (backBtn) {
+            backBtn.style.display = 'flex';
+            backBtn.onclick = exitContextActions;
+        }
         breadcrumbBar.style.display = 'flex';
-        breadcrumbPath.textContent = `Actions: ${result.metadata.name}`;
+        breadcrumbPath.textContent = `File Actions`;
 
-        // Populate Right Arrow Preview Container
+        // Populate Context Preview Container (Inspector Card)
         const previewContainer = document.getElementById('context-preview-container');
-        const previewImgBox = document.getElementById('preview-image-box');
         const previewImgEl = document.getElementById('preview-image-el');
+        const previewFallback = document.getElementById('preview-fallback-icon');
+        const previewFallbackSymbol = document.getElementById('preview-fallback-symbol');
+        const previewTitle = document.getElementById('preview-filename');
+        const previewPath = document.getElementById('preview-filepath');
         const metaExt = document.getElementById('preview-meta-ext');
         const metaSize = document.getElementById('preview-meta-size');
         const metaDate = document.getElementById('preview-meta-date');
+        const metaDot = document.getElementById('preview-meta-dot');
 
         if (previewContainer) {
             previewContainer.style.display = 'block';
+            if (previewTitle) previewTitle.textContent = result.metadata.name;
+            if (previewPath) {
+                previewPath.textContent = path;
+                previewPath.title = path;
+            }
             if (metaExt) metaExt.textContent = (result.metadata.extension || ft).toUpperCase();
+
+            let hasSize = false;
             if (metaSize) {
                 if (result.metadata.size > 0) {
                     metaSize.textContent = formatBytes(result.metadata.size);
+                    metaSize.style.display = 'inline';
+                    hasSize = true;
                 } else {
                     metaSize.textContent = '';
+                    metaSize.style.display = 'none';
                 }
             }
+
+            let hasDate = false;
             if (metaDate) {
                 if (result.metadata.modified_date > 0) {
                     const d = new Date(result.metadata.modified_date * 1000);
                     metaDate.textContent = d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    metaDate.style.display = 'inline';
+                    hasDate = true;
                 } else {
                     metaDate.textContent = '';
+                    metaDate.style.display = 'none';
                 }
             }
+
+            if (metaDot) metaDot.style.display = (hasSize && hasDate) ? 'inline' : 'none';
 
             const imgExts = ['png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp', 'ico'];
             const ext = (result.metadata.extension || '').toLowerCase();
             if (imgExts.includes(ext)) {
-                if (previewImgBox) previewImgBox.style.display = 'block';
                 if (previewImgEl) {
                     previewImgEl.src = '';
-                    previewImgEl.alt = 'Loading preview...';
+                    previewImgEl.style.display = 'none';
+                }
+                if (previewFallback) {
+                    previewFallback.style.display = 'flex';
+                    if (previewFallbackSymbol) {
+                        previewFallbackSymbol.textContent = 'image';
+                        previewFallbackSymbol.style.color = 'var(--primary)';
+                    }
                 }
                 window.ipc.postMessage(JSON.stringify({ type: 'get_preview', path: path }));
             } else {
-                if (previewImgBox) previewImgBox.style.display = 'none';
+                if (previewImgEl) {
+                    previewImgEl.src = '';
+                    previewImgEl.style.display = 'none';
+                }
+                if (previewFallback) {
+                    previewFallback.style.display = 'flex';
+                    if (previewFallbackSymbol) {
+                        const iconInfo = getIconForFile(result.metadata);
+                        previewFallbackSymbol.textContent = result._systemIcon || iconInfo.icon;
+                        previewFallbackSymbol.style.color = iconInfo.color || 'var(--primary)';
+                    }
+                }
             }
         }
 
@@ -3823,6 +4280,7 @@
             actionItems.push({
                 name: 'Open',
                 icon: 'open_in_new',
+                subtext: 'Launch application',
                 execute: () => {
                     window.ipc.postMessage(JSON.stringify({ type: 'select', query: searchInput.value, path: path }));
                     hideLauncher();
@@ -3831,6 +4289,7 @@
             actionItems.push({
                 name: 'Run as Administrator',
                 icon: 'admin_panel_settings',
+                subtext: 'Run with elevated administrator rights',
                 execute: () => {
                     window.ipc.postMessage(JSON.stringify({ type: 'run_as_admin', path: path }));
                     hideLauncher();
@@ -3839,6 +4298,7 @@
             actionItems.push({
                 name: 'Open File Location',
                 icon: 'folder_open',
+                subtext: 'Reveal containing folder in File Explorer',
                 execute: () => {
                     window.ipc.postMessage(JSON.stringify({ type: 'open_file_location', path: path }));
                     hideLauncher();
@@ -3847,6 +4307,7 @@
             actionItems.push({
                 name: 'Copy Path to Clipboard',
                 icon: 'content_copy',
+                subtext: 'Copy full path to clipboard',
                 execute: () => {
                     window.ipc.postMessage(JSON.stringify({ type: 'copy_to_clipboard', text: path }));
                     hideLauncher();
@@ -3856,6 +4317,7 @@
             actionItems.push({
                 name: 'Browse inside Kelp',
                 icon: 'arrow_forward',
+                subtext: 'Explore contents directly within Kelp',
                 execute: () => {
                     exitContextActions();
                     browseFolderAt(path);
@@ -3864,6 +4326,7 @@
             actionItems.push({
                 name: 'Open in File Explorer',
                 icon: 'folder_open',
+                subtext: 'Open folder in Windows Explorer',
                 execute: () => {
                     window.ipc.postMessage(JSON.stringify({ type: 'select', query: searchInput.value, path: path }));
                     hideLauncher();
@@ -3872,6 +4335,7 @@
             actionItems.push({
                 name: 'Move to...',
                 icon: 'drive_file_move',
+                subtext: 'Select destination folder to move this folder',
                 execute: () => {
                     window.ipc.postMessage(JSON.stringify({ 
                         type: 'pick_folder', 
@@ -3882,6 +4346,7 @@
             actionItems.push({
                 name: 'Copy Path to Clipboard',
                 icon: 'content_copy',
+                subtext: 'Copy full folder path to clipboard',
                 execute: () => {
                     window.ipc.postMessage(JSON.stringify({ type: 'copy_to_clipboard', text: path }));
                     hideLauncher();
@@ -3891,6 +4356,7 @@
             actionItems.push({
                 name: 'Open',
                 icon: 'open_in_new',
+                subtext: 'Open with default system application',
                 execute: () => {
                     window.ipc.postMessage(JSON.stringify({ type: 'select', query: searchInput.value, path: path }));
                     hideLauncher();
@@ -3899,6 +4365,7 @@
             actionItems.push({
                 name: 'Open File Location',
                 icon: 'folder_open',
+                subtext: 'Reveal in File Explorer',
                 execute: () => {
                     window.ipc.postMessage(JSON.stringify({ type: 'open_file_location', path: path }));
                     hideLauncher();
@@ -3907,6 +4374,7 @@
             actionItems.push({
                 name: 'Move to...',
                 icon: 'drive_file_move',
+                subtext: 'Select destination folder to move this file',
                 execute: () => {
                     window.ipc.postMessage(JSON.stringify({ 
                         type: 'pick_folder', 
@@ -3917,6 +4385,7 @@
             actionItems.push({
                 name: 'Copy Path to Clipboard',
                 icon: 'content_copy',
+                subtext: 'Copy full path to clipboard',
                 execute: () => {
                     window.ipc.postMessage(JSON.stringify({ type: 'copy_to_clipboard', text: path }));
                     hideLauncher();
@@ -3926,6 +4395,7 @@
             actionItems.push({
                 name: 'Terminate Process',
                 icon: 'close',
+                subtext: 'Force terminate running process',
                 execute: () => {
                     window.ipc.postMessage(JSON.stringify({ type: 'select', query: searchInput.value, path: path }));
                 }
@@ -3935,6 +4405,7 @@
             actionItems.push({
                 name: 'Open',
                 icon: 'open_in_new',
+                subtext: 'Open with default application',
                 execute: () => {
                     window.ipc.postMessage(JSON.stringify({ type: 'select', query: searchInput.value, path: path }));
                     hideLauncher();
@@ -3947,7 +4418,7 @@
             metadata: {
                 name: item.name,
                 extension: '',
-                parent_folder: 'Action Option',
+                parent_folder: item.subtext || 'Action',
                 full_path: `action://${item.name}`,
                 modified_date: 0,
                 size: 0,
@@ -3961,13 +4432,18 @@
 
         lastQuery = ''; // force redraw
         renderResults();
+        triggerResize();
     }
 
     function exitContextActions() {
         isShowingActions = false;
         actionTarget = null;
         actionItems = [];
-        document.getElementById('breadcrumb-back-btn').style.display = 'flex';
+        const backBtn = document.getElementById('breadcrumb-back-btn');
+        if (backBtn) {
+            backBtn.onclick = exitFolderBrowse;
+            backBtn.style.display = 'flex';
+        }
         
         const previewContainer = document.getElementById('context-preview-container');
         if (previewContainer) previewContainer.style.display = 'none';
@@ -3989,6 +4465,7 @@
             rawResults = [];
             renderResults();
         }
+        triggerResize();
     }
 
     // ===== Shutdown/Restart Timer Panel =====
@@ -5025,12 +5502,13 @@
     window.setPreviewThumbnail = function(path, base64) {
         if (actionTarget && actionTarget.metadata.full_path === path) {
             const imgEl = document.getElementById('preview-image-el');
-            const imgBox = document.getElementById('preview-image-box');
-            if (base64 && imgEl && imgBox) {
+            const fallback = document.getElementById('preview-fallback-icon');
+            if (base64 && imgEl) {
                 imgEl.src = `data:image/png;base64,${base64}`;
-                imgBox.style.display = 'block';
-            } else if (imgBox) {
-                imgBox.style.display = 'none';
+                imgEl.style.display = 'block';
+                if (fallback) fallback.style.display = 'none';
+                imgEl.onload = () => { triggerResize(); };
+                triggerResize();
             }
         }
     };
@@ -5173,6 +5651,9 @@
         if (isShowingSettings) return;
         const query = e.target.value;
 
+        // Toggle media widget visibility immediately based on query
+        updateMediaWidget();
+
         // Exit folder browsing, context actions, or timer mode when user starts typing
         if (isBrowsingFolder) {
             isBrowsingFolder = false;
@@ -5206,6 +5687,7 @@
             rawResults = [];
             lastQuery = '';
             renderResults();
+            updateMediaWidget();
             currentSearchQueryId++;
             return;
         }
@@ -5363,6 +5845,24 @@
         const rows = resultsList.querySelectorAll('.result-row:not(.row-exit)');
         const count = rows.length;
 
+        if (searchInput.value === '' && currentMediaState && currentMediaState.is_active && !isShowingActions && !isBrowsingFolder) {
+            if (e.ctrlKey && e.key === 'ArrowRight') {
+                e.preventDefault();
+                sendMediaCommand('next');
+                return;
+            }
+            if (e.ctrlKey && e.key === 'ArrowLeft') {
+                e.preventDefault();
+                sendMediaCommand('prev');
+                return;
+            }
+            if (e.ctrlKey && e.key === ' ') {
+                e.preventDefault();
+                sendMediaCommand('toggle');
+                return;
+            }
+        }
+
         if (isShowingConfirm) {
             if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'Tab') {
                 e.preventDefault();
@@ -5463,6 +5963,11 @@
                 }
                 if (result.match_type === 'SystemCommand') {
                     executeSystemCommand(result.metadata.full_path);
+                    return;
+                }
+                if (result.match_type === 'WindowsSetting' || result.metadata.full_path.startsWith('action:') || result.metadata.full_path.startsWith('ms-settings:')) {
+                    window.ipc.postMessage(JSON.stringify({ type: 'execute_setting', action: result.metadata.full_path }));
+                    hideLauncher();
                     return;
                 }
             }

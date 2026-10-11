@@ -79,6 +79,12 @@ enum IpcMessage {
     MovePaths { sources: Vec<String>, destination: String },
     #[serde(rename = "kill_process")]
     KillProcess { pid: u32, name: String },
+    #[serde(rename = "get_media_state")]
+    GetMediaState,
+    #[serde(rename = "media_control")]
+    MediaControl { action: String },
+    #[serde(rename = "execute_setting")]
+    ExecuteSetting { action: String },
 }
 
 #[derive(Debug)]
@@ -113,6 +119,10 @@ enum UserEvent {
     MoveCompleted { moved_count: usize, error_msg: Option<String> },
     KillProcessRequest { pid: u32, name: String },
     ProcessKilled { success: bool, message: String },
+    GetMediaStateRequest,
+    MediaStateReady { state_json: String },
+    MediaControlRequest { action: String },
+    ExecuteSettingRequest { action: String },
     TrayIcon(tray_icon::TrayIconEvent),
     MenuEvent(tray_icon::menu::MenuEvent),
 }
@@ -436,6 +446,9 @@ async fn main() {
                             IpcMessage::GetPreview { path } => UserEvent::GetPreviewRequest { path },
                             IpcMessage::MovePaths { sources, destination } => UserEvent::MovePathsRequest { sources, destination },
                             IpcMessage::KillProcess { pid, name } => UserEvent::KillProcessRequest { pid, name },
+                            IpcMessage::GetMediaState => UserEvent::GetMediaStateRequest,
+                            IpcMessage::MediaControl { action } => UserEvent::MediaControlRequest { action },
+                            IpcMessage::ExecuteSetting { action } => UserEvent::ExecuteSettingRequest { action },
                         };
                         let _ = proxy.send_event(event);
                     }
@@ -534,6 +547,12 @@ async fn main() {
                                     force_set_foreground_window(&window);
                                 }
                                 let _ = webview.evaluate_script("showLauncher()");
+                                let proxy_media = event_loop_proxy.clone();
+                                tokio::task::spawn_blocking(move || {
+                                    let state = engine::media_control::get_current_media_state().unwrap_or_default();
+                                    let json = serde_json::to_string(&state).unwrap_or_else(|_| "{}".to_string());
+                                    let _ = proxy_media.send_event(UserEvent::MediaStateReady { state_json: json });
+                                });
                             }
                         }
                     }
@@ -1169,6 +1188,33 @@ async fn main() {
                         let script = format!("if (window.showToast) {{ window.showToast({}, {}); }}", msg_json, success);
                         let _ = webview.evaluate_script(&script);
                     }
+                    UserEvent::GetMediaStateRequest => {
+                        let proxy = event_loop_proxy.clone();
+                        tokio::task::spawn_blocking(move || {
+                            let state = engine::media_control::get_current_media_state().unwrap_or_default();
+                            let json = serde_json::to_string(&state).unwrap_or_else(|_| "{}".to_string());
+                            let _ = proxy.send_event(UserEvent::MediaStateReady { state_json: json });
+                        });
+                    }
+                    UserEvent::MediaControlRequest { action } => {
+                        let proxy = event_loop_proxy.clone();
+                        tokio::task::spawn_blocking(move || {
+                            let state = engine::media_control::send_media_command(&action).unwrap_or_default();
+                            let json = serde_json::to_string(&state).unwrap_or_else(|_| "{}".to_string());
+                            let _ = proxy.send_event(UserEvent::MediaStateReady { state_json: json });
+                        });
+                    }
+                    UserEvent::MediaStateReady { state_json } => {
+                        let script = format!("if (window.setMediaState) {{ window.setMediaState({}); }}", state_json);
+                        let _ = webview.evaluate_script(&script);
+                    }
+                    UserEvent::ExecuteSettingRequest { action } => {
+                        tokio::task::spawn_blocking(move || {
+                            if let Err(e) = engine::windows_settings::execute_setting(&action) {
+                                warn!("Failed to execute setting '{}': {}", action, e);
+                            }
+                        });
+                    }
                 }
             }
             _ => (),
@@ -1182,6 +1228,12 @@ fn launch_file(path: &str) {
         return;
     }
     info!("[Launch] Request to execute: '{}'", path);
+    if path.starts_with("action:") || path.starts_with("ms-settings:") {
+        if let Err(e) = engine::windows_settings::execute_setting(path) {
+            warn!("Failed to execute setting '{}': {}", path, e);
+        }
+        return;
+    }
     if path.starts_with("shell:AppsFolder\\") {
         let exe_w = windows::core::HSTRING::from("explorer.exe");
         let args_w = windows::core::HSTRING::from(path);

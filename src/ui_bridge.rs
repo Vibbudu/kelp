@@ -353,12 +353,29 @@ impl UIBridge {
         };
         results.retain(|r| r.score >= threshold);
 
+        // 3b. Search Windows Settings & Quick Actions
+        let setting_results = crate::windows_settings::search_settings(raw_query);
+        if !setting_results.is_empty() {
+            let mut merged = Vec::with_capacity(setting_results.len() + results.len());
+            // High-confidence settings (score >= 0.8) go first
+            let (high_settings, other_settings): (Vec<_>, Vec<_>) = setting_results
+                .into_iter()
+                .partition(|s| s.score >= 0.8);
+            
+            merged.extend(high_settings);
+            merged.extend(results);
+            merged.extend(other_settings);
+            results = merged;
+        }
+
         // 4. Hard Limit at 15 results
         results.truncate(15);
 
         // 5. Populate Base64 icon strings for top 15 results (cached)
         for r in &mut results {
-            r.icon_base64 = Some(crate::utilities::get_icon_cached(&r.metadata));
+            if r.match_type != "WindowsSetting" {
+                r.icon_base64 = Some(crate::utilities::get_icon_cached(&r.metadata));
+            }
         }
 
         // 6. Update Result Cache with all matching candidates and top 15 final results

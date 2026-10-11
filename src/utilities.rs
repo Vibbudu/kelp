@@ -107,7 +107,7 @@ pub fn expand_env_vars(s: &str) -> String {
 }
 
 /// Custom thread-safe Base64 encoder (keeps dependencies minimal)
-fn to_base64(bytes: &[u8]) -> String {
+pub fn to_base64(bytes: &[u8]) -> String {
     const CHARSET: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
     let mut result = String::with_capacity((bytes.len() + 2) / 3 * 4);
     let mut i = 0;
