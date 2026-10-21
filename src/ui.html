@@ -3359,6 +3359,45 @@
             return `${escapeHtml(part1)}<span class="highlight">${escapeHtml(part2)}</span>${escapeHtml(part3)}`;
         }
 
+        // Multi-word query highlight: highlight matching words rather than random scattered characters
+        if (queryClean.includes(' ')) {
+            const words = queryClean.split(/\s+/).filter(w => w.length >= 2);
+            if (words.length > 0) {
+                const mask = new Array(text.length).fill(false);
+                let anyWordMatched = false;
+                for (const word of words) {
+                    let searchStart = 0;
+                    while (searchStart < textLower.length) {
+                        const wIdx = textLower.indexOf(word, searchStart);
+                        if (wIdx === -1) break;
+                        anyWordMatched = true;
+                        for (let k = wIdx; k < wIdx + word.length; k++) {
+                            mask[k] = true;
+                        }
+                        searchStart = wIdx + word.length;
+                    }
+                }
+                if (anyWordMatched) {
+                    let html = '';
+                    let i = 0;
+                    while (i < text.length) {
+                        if (mask[i]) {
+                            let j = i;
+                            while (j < text.length && mask[j]) j++;
+                            html += `<span class="highlight">${escapeHtml(text.substring(i, j))}</span>`;
+                            i = j;
+                        } else {
+                            let j = i;
+                            while (j < text.length && !mask[j]) j++;
+                            html += escapeHtml(text.substring(i, j));
+                            i = j;
+                        }
+                    }
+                    return html;
+                }
+            }
+        }
+
         // Sequential character highlight (acronym / fuzzy fallback)
         let html = '';
         let qIdx = 0;
@@ -3396,20 +3435,41 @@
     }
 
     // ===== Fallback Icon Mapping =====
-    function getIconForFile(metadata) {
+    function getIconForFile(metadata, matchType) {
         const fileType = (metadata.file_type || '').toLowerCase();
+        const mType = (matchType || metadata.match_type || '').toLowerCase();
         const ext = (metadata.extension || '').toLowerCase();
         const name = (metadata.name || '').toLowerCase();
 
-        if (fileType === 'webshortcut') {
+        if (mType === 'calculator') {
+            return { icon: 'calculate', color: '#10B981' };
+        }
+        if (mType === 'unitconversion') {
+            return { icon: 'swap_horiz', color: '#8B5CF6' };
+        }
+        if (mType === 'quicktool') {
+            return { icon: ext || 'bolt', color: '#F59E0B' };
+        }
+        if (mType === 'clipboarditem' || mType === 'clipboardhint') {
+            return { icon: 'content_paste', color: '#06B6D4' };
+        }
+        if (mType === 'switchwindow' || mType === 'windowcommandhint') {
+            return { icon: 'web_asset', color: '#3B82F6' };
+        }
+        if (fileType === 'webshortcut' || mType === 'webshortcut') {
             return { icon: 'bookmark', color: '#0078D4' };
         }
 
-        if (fileType === 'killprocess') {
+        if (fileType === 'killprocess' || mType === 'killprocess' || mType === 'killcommandhint') {
             return { icon: 'close', color: '#EF5350' };
         }
 
-        if (fileType === 'windowssetting' || (metadata.match_type === 'WindowsSetting') || (metadata.parent_folder && (metadata.parent_folder.startsWith('Settings') || metadata.parent_folder.startsWith('Quick Action') || metadata.parent_folder.startsWith('Control Panel')))) {
+        if (fileType === 'windowssetting' || mType === 'windowssetting' || (metadata.parent_folder && (metadata.parent_folder.startsWith('Settings') || metadata.parent_folder.startsWith('Quick Action') || metadata.parent_folder.startsWith('Control Panel') || metadata.parent_folder.startsWith('System Tool')))) {
+            if (ext && ext.length > 1 && !['exe', 'msc', 'cpl', 'dll', 'lnk'].includes(ext)) {
+                return { icon: ext, color: '#0078D4' };
+            }
+            if (name.includes('light mode')) return { icon: 'light_mode', color: '#0078D4' };
+            if (name.includes('dark mode')) return { icon: 'dark_mode', color: '#0078D4' };
             if (name.includes('display') || name.includes('monitor') || name.includes('resolution')) return { icon: 'monitor', color: '#0078D4' };
             if (name.includes('sound') || name.includes('volume') || name.includes('audio') || name.includes('mic')) return { icon: 'volume_up', color: '#0078D4' };
             if (name.includes('bluetooth')) return { icon: 'bluetooth', color: '#0078D4' };
@@ -3468,7 +3528,16 @@
     }
 
     // ===== Format file type for display =====
-    function formatFileType(fileType) {
+    function formatFileType(fileType, matchType) {
+        const mt = (matchType || '').toLowerCase();
+        if (mt === 'calculator') return 'CALC';
+        if (mt === 'unitconversion') return 'CONVERT';
+        if (mt === 'quicktool') return 'TOOL';
+        if (mt === 'clipboarditem' || mt === 'clipboardhint') return 'CLIPBOARD';
+        if (mt === 'switchwindow' || mt === 'windowcommandhint') return 'WINDOW';
+        if (mt === 'killprocess' || mt === 'killcommandhint') return 'PROCESS';
+        if (mt === 'windowssetting') return 'SETTING';
+        if (mt === 'webshortcut') return 'SHORTCUT';
         if (!fileType) return '';
         const ft = fileType.toLowerCase();
         if (ft === 'application') return 'APP';
@@ -3485,7 +3554,7 @@
     }
 
     const SYSTEM_COMMANDS = [
-        { keywords: ['shutdown', 'shut down', 'power off', 'turn off'], name: 'Shut Down', icon: 'power_settings_new', command: 'shutdown /s /t 0', hasTimer: true },
+        { keywords: ['shutdown', 'shut down', 'power off', 'turn off pc', 'turn off computer'], name: 'Shut Down', icon: 'power_settings_new', command: 'shutdown /s /t 0', hasTimer: true },
         { keywords: ['restart', 'reboot'], name: 'Restart', icon: 'restart_alt', command: 'shutdown /r /t 0', hasTimer: true },
         { keywords: ['sleep', 'suspend'], name: 'Sleep', icon: 'bedtime', command: 'rundll32.exe powrprof.dll,SetSuspendState 0,1,0', hasTimer: false },
         { keywords: ['lock', 'lock screen'], name: 'Lock Screen', icon: 'lock', command: 'rundll32.exe user32.dll,LockWorkStation', hasTimer: false },
@@ -3616,11 +3685,14 @@
     function getMatchingSystemCommands(query) {
         if (!query) return [];
         const cleanQuery = query.trim().toLowerCase();
-        if (!cleanQuery) return [];
+        if (cleanQuery.length < 3) return [];
 
-        // Check for Kelp Settings trigger
-        if (['settings', 'setting', 'preferences', 'pref', 'config', 'configuration', 'kelp', 'options', 'setup'].some(kw => kw.includes(cleanQuery) || cleanQuery.includes(kw))) {
-            return [{
+        const matches = [];
+
+        // Check for Kelp Preferences trigger without hijacking Windows Settings queries like "display settings"
+        const kelpTriggers = ['kelp', 'kelp settings', 'kelp preferences', 'preferences', 'config', 'configuration'];
+        if (kelpTriggers.some(kw => kw.startsWith(cleanQuery) || cleanQuery === kw)) {
+            matches.push({
                 metadata: {
                     name: 'Kelp Preferences',
                     extension: '',
@@ -3635,17 +3707,16 @@
                 icon_base64: null,
                 _systemIcon: 'settings',
                 _hasTimer: false
-            }];
+            });
         }
 
         // If the query is actually a relative or absolute natural language schedule pattern, skip showing full static system command results to keep layout uncluttered
         const isRelative = /^(shutdown|restart|shut\s*down)\s+in\s+/i.test(cleanQuery);
         const isAbsolute = /^(shutdown|restart|shut\s*down)\s+at\s+/i.test(cleanQuery);
-        if (isRelative || isAbsolute) return [];
+        if (isRelative || isAbsolute) return matches;
 
-        const matches = [];
         for (const cmd of SYSTEM_COMMANDS) {
-            const matchesKeyword = cmd.keywords.some(kw => kw.includes(cleanQuery) || cleanQuery.includes(kw));
+            const matchesKeyword = cmd.keywords.some(kw => kw.startsWith(cleanQuery) || cleanQuery === kw);
             if (matchesKeyword) {
                 matches.push({
                     metadata: {
@@ -3668,12 +3739,30 @@
         return matches;
     }
 
+    let toastTimeout = null;
+    let toastAutoHideLauncher = false;
+
+    function clearPendingToast() {
+        toastAutoHideLauncher = false;
+        if (toastTimeout) {
+            clearTimeout(toastTimeout);
+            toastTimeout = null;
+        }
+        const toast = document.getElementById('toast');
+        if (toast) {
+            toast.style.opacity = '0';
+            toast.style.pointerEvents = 'none';
+            toast.style.transform = 'translateX(-50%) translateY(20px)';
+        }
+    }
+
     // ===== Show Launcher =====
     function showLauncher() {
         if (hideTimeout) {
             clearTimeout(hideTimeout);
             hideTimeout = null;
         }
+        clearPendingToast();
         launcher.classList.remove('launcher-hidden', 'launcher-exit');
         launcher.classList.add('launcher-visible');
         searchInput.value = '';
@@ -3717,6 +3806,7 @@
             clearTimeout(hideTimeout);
             hideTimeout = null;
         }
+        clearPendingToast();
         launcher.classList.remove('launcher-exit');
         launcher.classList.add('launcher-visible');
     }
@@ -3725,6 +3815,7 @@
     function hideLauncher() {
         if (typeof isOnboardingActive !== 'undefined' && isOnboardingActive) return;
         if (hideTimeout) return;
+        toastAutoHideLauncher = false;
         stopMediaPolling();
         launcher.classList.remove('launcher-visible');
         launcher.classList.add('launcher-exit');
@@ -3740,7 +3831,13 @@
         const query = searchInput.value;
         const sysMatches = getMatchingSystemCommands(query);
         const nlMatch = getNaturalLanguageSchedule(query);
-        const fileResults = results || [];
+        const hasSysLock = sysMatches.some(m => m.metadata && m.metadata.name === 'Lock Screen');
+        const fileResults = (results || []).filter(r => {
+            if (hasSysLock && r.metadata && r.metadata.full_path === 'action:lock_workstation') {
+                return false;
+            }
+            return true;
+        });
 
         // Prepend natural language matches before static system matches and files
         let allResults = [...sysMatches];
@@ -3750,10 +3847,11 @@
 
         rawResults = [...allResults, ...fileResults];
 
-        // Smarter search: fallback to Google Search row if nothing matches and not a kill command
+        // Smarter search: fallback to Google Search row if nothing matches and not a special command prefix
         if (rawResults.length === 0 && query && query.trim().length > 0) {
             const cleanQ = query.trim();
-            if (!cleanQ.toLowerCase().startsWith('kill')) {
+            const lowerQ = cleanQ.toLowerCase();
+            if (!lowerQ.startsWith('kill') && !lowerQ.startsWith('win ') && lowerQ !== 'win') {
                 rawResults = [{
                     metadata: {
                         name: `Search Google for "${cleanQ}"`,
@@ -3790,8 +3888,21 @@
         if (currentTab === 'all') return rawResults;
 
         if (currentTab === 'apps') {
+            const nonAppMatchTypes = [
+                'calculator',
+                'unitconversion',
+                'quicktool',
+                'clipboarditem',
+                'clipboardhint',
+                'windowssetting',
+                'webshortcut',
+                'killcommandhint',
+                'windowcommandhint'
+            ];
             return rawResults.filter(r => {
                 const ft = (r.metadata.file_type || '').toLowerCase();
+                const mt = (r.match_type || '').toLowerCase();
+                if (nonAppMatchTypes.includes(mt)) return false;
                 return ft === 'application' || ft === 'shortcut';
             });
         }
@@ -3807,7 +3918,8 @@
         if (currentTab === 'web') {
             return rawResults.filter(r => {
                 const ft = (r.metadata.file_type || '').toLowerCase();
-                return ft === 'websearch';
+                const mt = (r.match_type || '').toLowerCase();
+                return ft === 'websearch' || ft === 'webshortcut' || mt === 'webshortcut';
             });
         }
 
@@ -3923,6 +4035,7 @@
                     row.className = queryChanged ? 'result-row' : 'result-row row-enter';
                     row.setAttribute('data-path', path);
                     row.setAttribute('data-file-type', (result.metadata.file_type || '').toLowerCase());
+                    row.setAttribute('data-match-type', (result.match_type || '').toLowerCase());
 
                     row.addEventListener('mousemove', () => {
                         const activeRows = resultsList.querySelectorAll('.result-row:not(.row-exit)');
@@ -3939,17 +4052,21 @@
                         });
                     }
                 } else {
+                    row.setAttribute('data-file-type', (result.metadata.file_type || '').toLowerCase());
+                    row.setAttribute('data-match-type', (result.match_type || '').toLowerCase());
                     resultsList.appendChild(row);
                 }
 
                 // Build row content — generate a content key to skip unnecessary rebuilds
-                const contentKey = `${result.metadata.name}|${result.metadata.parent_folder}|${result.metadata.file_type}|${result.icon_base64 || ''}|${currentQuery}|${result._systemIcon || ''}`;
+                const contentKey = `${result.metadata.name}|${result.metadata.parent_folder}|${result.metadata.file_type}|${result.match_type || ''}|${result.icon_base64 || ''}|${currentQuery}|${result._systemIcon || ''}`;
                 if (row.getAttribute('data-content-key') !== contentKey) {
                     row.setAttribute('data-content-key', contentKey);
 
-                    const highlightedName = highlightMatch(result.metadata.name, isBrowsingFolder ? '' : currentQuery);
+                    const mType = (result.match_type || '').toLowerCase();
+                    const skipHighlight = isBrowsingFolder || mType === 'calculator' || mType === 'unitconversion' || mType === 'quicktool' || mType === 'clipboarditem';
+                    const highlightedName = highlightMatch(result.metadata.name, skipHighlight ? '' : currentQuery);
                     const displayPath = formatPath(result.metadata.parent_folder);
-                    const displayType = formatFileType(result.metadata.file_type);
+                    const displayType = formatFileType(result.metadata.file_type, result.match_type);
 
                     let iconHtml = '';
                     let iconBoxStyle = '';
@@ -3959,7 +4076,7 @@
                     } else if (result.icon_base64 && result.icon_base64.length > 0) {
                         iconHtml = `<img src="data:image/png;base64,${result.icon_base64}" style="width: 24px; height: 24px; object-fit: contain;" />`;
                     } else {
-                        const iconInfo = getIconForFile(result.metadata);
+                        const iconInfo = getIconForFile(result.metadata, result.match_type);
                         iconHtml = `<span class="material-symbols-outlined" aria-hidden="true" style="color: ${iconInfo.color}; font-size: 24px; font-variation-settings: 'FILL' 1;">${iconInfo.icon}</span>`;
                     }
 
@@ -3979,26 +4096,6 @@
                 }
 
                 row.onclick = function () {
-                    const filtered = getFilteredResults();
-                    const result = filtered[index];
-                    if (result) {
-                        if (result.metadata.full_path === '__kelp_settings__' || result.match_type === 'Settings' || (result.metadata.file_type || '').toLowerCase() === 'settings') {
-                            setSelectedIndex(index);
-                            showSettings();
-                            return;
-                        }
-                        if (result.match_type === 'SystemCommand') {
-                            setSelectedIndex(index);
-                            executeSystemCommand(result.metadata.full_path);
-                            return;
-                        }
-                        if (result.match_type === 'WindowsSetting' || result.metadata.full_path.startsWith('action:') || result.metadata.full_path.startsWith('ms-settings:')) {
-                            setSelectedIndex(index);
-                            window.ipc.postMessage(JSON.stringify({ type: 'execute_setting', action: result.metadata.full_path }));
-                            hideLauncher();
-                            return;
-                        }
-                    }
                     setSelectedIndex(index);
                     executeSelected();
                 };
@@ -4059,27 +4156,52 @@
             }
             const activeRow = rows[selectedIndex];
             if (activeRow) {
-                const path = activeRow.getAttribute('data-path');
+                const path = activeRow.getAttribute('data-path') || '';
                 const fileType = (activeRow.getAttribute('data-file-type') || '').toLowerCase();
+                const matchType = (activeRow.getAttribute('data-match-type') || '').toLowerCase();
                 const query = searchInput.value;
 
-                if (path === '__kelp_settings__' || fileType === 'settings') {
+                if (path === 'kill_cmd_hint' || path === 'clipboard_empty_hint' || path === 'win_cmd_hint') {
+                    return;
+                }
+
+                if (path === '__kelp_settings__' || fileType === 'settings' || matchType === 'settings') {
                     showSettings();
                     return;
                 }
 
-                if (fileType === 'systemcommand') {
+                if (fileType === 'systemcommand' || matchType === 'systemcommand') {
                     executeSystemCommand(path);
                     return;
                 }
 
-                if (path.startsWith('action:') || path.startsWith('ms-settings:') || fileType === 'windowssetting') {
-                    window.ipc.postMessage(JSON.stringify({ type: 'execute_setting', action: path }));
+                if (path.startsWith('copy:')) {
+                    const copyText = path.substring(5);
+                    window.ipc.postMessage(JSON.stringify({ type: 'copy_to_clipboard', text: copyText }));
+                    if (window.showToast) {
+                        window.showToast('Copied to clipboard!', true);
+                    }
+                    return;
+                }
+
+                if (path.startsWith('focus://') || matchType === 'switchwindow') {
+                    window.ipc.postMessage(JSON.stringify({ type: 'select', query: query, path: path }));
                     hideLauncher();
                     return;
                 }
 
-                if (path.startsWith('kill://') || fileType === 'killprocess') {
+                if (matchType === 'windowssetting' || fileType === 'windowssetting' || path.startsWith('action:') || path.startsWith('ms-settings:') || path.startsWith('ms-screenclip:')) {
+                    window.ipc.postMessage(JSON.stringify({ type: 'execute_setting', action: path }));
+                    if (path.includes('light_mode') || path.includes('dark_mode')) {
+                        setTimeout(() => {
+                            if (typeof applySystemTheme === 'function') applySystemTheme();
+                        }, 250);
+                    }
+                    hideLauncher();
+                    return;
+                }
+
+                if (path.startsWith('kill://') || fileType === 'killprocess' || matchType === 'killprocess') {
                     window.ipc.postMessage(JSON.stringify({ type: 'select', query: query, path: path }));
                     return;
                 }
@@ -4265,7 +4387,7 @@
                 if (previewFallback) {
                     previewFallback.style.display = 'flex';
                     if (previewFallbackSymbol) {
-                        const iconInfo = getIconForFile(result.metadata);
+                        const iconInfo = getIconForFile(result.metadata, result.match_type);
                         previewFallbackSymbol.textContent = result._systemIcon || iconInfo.icon;
                         previewFallbackSymbol.style.color = iconInfo.color || 'var(--primary)';
                     }
@@ -4274,9 +4396,47 @@
         }
 
         actionItems = [];
-        
+        const mt = (result.match_type || '').toLowerCase();
+
         // Build actions
-        if (ft === 'application' || ft === 'shortcut') {
+        if (path.startsWith('copy:')) {
+            const copyText = path.substring(5);
+            actionItems.push({
+                name: 'Copy to Clipboard',
+                icon: 'content_copy',
+                subtext: `Copy "${copyText.length > 60 ? copyText.substring(0, 60) + '...' : copyText}"`,
+                execute: () => {
+                    window.ipc.postMessage(JSON.stringify({ type: 'copy_to_clipboard', text: copyText }));
+                    if (window.showToast) window.showToast('Copied to clipboard!', true);
+                    exitContextActions();
+                }
+            });
+        } else if (path.startsWith('focus://') || mt === 'switchwindow') {
+            actionItems.push({
+                name: 'Switch to Window',
+                icon: 'web_asset',
+                subtext: 'Bring window to foreground and restore if minimized',
+                execute: () => {
+                    window.ipc.postMessage(JSON.stringify({ type: 'select', query: searchInput.value, path: path }));
+                    hideLauncher();
+                }
+            });
+        } else if (mt === 'windowssetting' || ft === 'windowssetting' || path.startsWith('action:') || path.startsWith('ms-settings:') || path.startsWith('ms-screenclip:')) {
+            actionItems.push({
+                name: 'Execute / Open Setting',
+                icon: 'open_in_new',
+                subtext: result.metadata.parent_folder || 'Run Windows action or open setting',
+                execute: () => {
+                    window.ipc.postMessage(JSON.stringify({ type: 'execute_setting', action: path }));
+                    if (path.includes('light_mode') || path.includes('dark_mode')) {
+                        setTimeout(() => {
+                            if (typeof applySystemTheme === 'function') applySystemTheme();
+                        }, 250);
+                    }
+                    hideLauncher();
+                }
+            });
+        } else if (ft === 'application' || ft === 'shortcut') {
             actionItems.push({
                 name: 'Open',
                 icon: 'open_in_new',
@@ -4391,7 +4551,7 @@
                     hideLauncher();
                 }
             });
-        } else if (ft === 'killprocess') {
+        } else if (ft === 'killprocess' || mt === 'killprocess') {
             actionItems.push({
                 name: 'Terminate Process',
                 icon: 'close',
@@ -5519,6 +5679,11 @@
         const msg = document.getElementById('toast-msg');
         if (!toast) return;
 
+        if (toastTimeout) {
+            clearTimeout(toastTimeout);
+            toastTimeout = null;
+        }
+
         msg.textContent = message;
         if (isSuccess) {
             icon.textContent = 'check_circle';
@@ -5531,12 +5696,15 @@
         toast.style.opacity = '1';
         toast.style.pointerEvents = 'auto';
         toast.style.transform = 'translateX(-50%) translateY(0)';
+        toastAutoHideLauncher = launcher.classList.contains('launcher-visible') && !hideTimeout;
 
-        setTimeout(() => {
+        toastTimeout = setTimeout(() => {
+            toastTimeout = null;
             toast.style.opacity = '0';
             toast.style.pointerEvents = 'none';
             toast.style.transform = 'translateX(-50%) translateY(20px)';
-            if (!isShowingSettings && (typeof isOnboardingActive === 'undefined' || !isOnboardingActive)) {
+            if (toastAutoHideLauncher && !isShowingSettings && (typeof isOnboardingActive === 'undefined' || !isOnboardingActive)) {
+                toastAutoHideLauncher = false;
                 hideLauncher();
             }
         }, 1800);
@@ -5649,6 +5817,7 @@
     // Input handler: 10ms debounced search with customizable bang detection
     searchInput.addEventListener('input', (e) => {
         if (isShowingSettings) return;
+        toastAutoHideLauncher = false;
         const query = e.target.value;
 
         // Toggle media widget visibility immediately based on query
@@ -5951,25 +6120,6 @@
                     actionItems[selectedIndex].execute();
                 }
                 return;
-            }
-
-            // Execute settings or system command directly if selected
-            const filtered = getFilteredResults();
-            const result = filtered[selectedIndex];
-            if (result) {
-                if (result.metadata.full_path === '__kelp_settings__' || result.match_type === 'Settings' || (result.metadata.file_type || '').toLowerCase() === 'settings') {
-                    showSettings();
-                    return;
-                }
-                if (result.match_type === 'SystemCommand') {
-                    executeSystemCommand(result.metadata.full_path);
-                    return;
-                }
-                if (result.match_type === 'WindowsSetting' || result.metadata.full_path.startsWith('action:') || result.metadata.full_path.startsWith('ms-settings:')) {
-                    window.ipc.postMessage(JSON.stringify({ type: 'execute_setting', action: result.metadata.full_path }));
-                    hideLauncher();
-                    return;
-                }
             }
 
             executeSelected();

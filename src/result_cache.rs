@@ -21,6 +21,12 @@ pub struct ResultCache {
     pub misses: AtomicUsize,
 }
 
+impl Default for ResultCache {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ResultCache {
     /// Creates a new ResultCache with the default capacity of 20 queries.
     pub fn new() -> Self {
@@ -128,9 +134,11 @@ impl ResultCache {
         let mut best_files = None;
 
         for (cached_query, files) in inner.subset_files.iter() {
-            // Extension filter check: do not use cached subset if the extension filter does not match
+            // Extension & semantic filter check: do not use cached subset if filters differ
             let parsed_cached = crate::query_parser::parse_query(cached_query);
-            if parsed_query.extension_filter != parsed_cached.extension_filter {
+            if parsed_query.extension_filter != parsed_cached.extension_filter
+                || parsed_query.semantic_extensions != parsed_cached.semantic_extensions
+            {
                 continue;
             }
 

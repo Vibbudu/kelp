@@ -1,6 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use engine::{UIBridge, SearchResult};
+use engine::UIBridge;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 use tracing::{info, error, warn};
@@ -162,8 +162,10 @@ unsafe fn center_window_on_active_monitor(window: &tao::window::Window) {
     };
 
     let hmonitor = MonitorFromWindow(target_hwnd, MONITOR_DEFAULTTOPRIMARY);
-    let mut mi = MONITORINFO::default();
-    mi.cbSize = std::mem::size_of::<MONITORINFO>() as u32;
+    let mut mi = MONITORINFO {
+        cbSize: std::mem::size_of::<MONITORINFO>() as u32,
+        ..Default::default()
+    };
 
     if GetMonitorInfoW(hmonitor, &mut mi).as_bool() {
         let work_left = mi.rcWork.left;
@@ -549,6 +551,7 @@ async fn main() {
                                 let _ = webview.evaluate_script("showLauncher()");
                                 let proxy_media = event_loop_proxy.clone();
                                 tokio::task::spawn_blocking(move || {
+                                    engine::clipboard::sync_system_clipboard();
                                     let state = engine::media_control::get_current_media_state().unwrap_or_default();
                                     let json = serde_json::to_string(&state).unwrap_or_else(|_| "{}".to_string());
                                     let _ = proxy_media.send_event(UserEvent::MediaStateReady { state_json: json });
@@ -575,149 +578,7 @@ async fn main() {
                                 return;
                             }
 
-                            // 1. Process Killer Command Workflow ("kill" or "kill <app>")
-                            if query.eq_ignore_ascii_case("kill") {
-                                let results = vec![SearchResult {
-                                    metadata: engine::models::FileMetadata {
-                                        id: None,
-                                        name: "Kill Process".to_string(),
-                                        extension: String::new(),
-                                        parent_folder: "Type 'kill <app>' to search and terminate running apps".to_string(),
-                                        full_path: "kill_cmd_hint".to_string(),
-                                        modified_date: 0,
-                                        size: 0,
-                                        file_type: engine::models::FileType::Application,
-                                    },
-                                    score: 1.0,
-                                    match_type: "KillCommandHint".to_string(),
-                                    icon_base64: None,
-                                }];
-                                let results_json = serde_json::to_string(&results).unwrap_or_else(|_| "[]".to_string());
-                                let _ = proxy.send_event(UserEvent::SearchCompleted { query_id, results_json, debug_json: None });
-                                return;
-                            } else if query.to_lowercase().starts_with("kill ") {
-                                let target = query["kill ".len()..].trim().to_lowercase();
-                                let procs = engine::process::get_running_user_applications();
-                                let mut results = Vec::new();
-                                for p in procs {
-                                    if target.is_empty()
-                                        || p.name.to_lowercase().contains(&target)
-                                        || p.title.to_lowercase().contains(&target)
-                                    {
-                                        let icon_base64 = p.exe_path.as_deref().and_then(|path| engine::utilities::get_icon_from_exe_path(path));
-                                        results.push(SearchResult {
-                                            metadata: engine::models::FileMetadata {
-                                                id: None,
-                                                name: format!("{} (PID: {})", p.name, p.pid),
-                                                extension: String::new(),
-                                                parent_folder: format!("{} — Terminate Application", p.title),
-                                                full_path: format!("kill://{}", p.pid),
-                                                modified_date: 0,
-                                                size: 0,
-                                                file_type: engine::models::FileType::Application,
-                                            },
-                                            score: 1.0,
-                                            match_type: "KillProcess".to_string(),
-                                            icon_base64,
-                                        });
-                                    }
-                                }
-                                results.truncate(20);
-                                let results_json = serde_json::to_string(&results).unwrap_or_else(|_| "[]".to_string());
-                                let _ = proxy.send_event(UserEvent::SearchCompleted { query_id, results_json, debug_json: None });
-                                return;
-                            }
-
-                            // 2. Normal search with website shortcut support
-                            let search_start = std::time::Instant::now();
-                            let parsed_query = engine::query_parser::parse_query(&query);
-                            let (mut results, matched_files) = engine_c.search_engine.search(&parsed_query);
-                            let search_time_us = search_start.elapsed().as_micros() as f64 / 1000.0;
-
-                            // Website Shortcuts Matching (only when user has typed a non-empty query)
-                            let mut shortcut_results = Vec::new();
-                            if !trimmed.is_empty() {
-                                let cfg = engine_c.get_config();
-                                for sc in &cfg.web_shortcuts {
-                                    if sc.alias.eq_ignore_ascii_case(trimmed) {
-                                        shortcut_results.push(SearchResult {
-                                            metadata: engine::models::FileMetadata {
-                                                id: None,
-                                                name: sc.name.clone(),
-                                                extension: String::new(),
-                                                parent_folder: format!("{} (Website Shortcut)", sc.url),
-                                                full_path: sc.url.clone(),
-                                                modified_date: 0,
-                                                size: 0,
-                                                file_type: engine::models::FileType::Shortcut,
-                                            },
-                                            score: 1.0,
-                                            match_type: "WebShortcut".to_string(),
-                                            icon_base64: None,
-                                        });
-                                    } else if sc.alias.to_lowercase().starts_with(&trimmed.to_lowercase()) {
-                                        shortcut_results.push(SearchResult {
-                                            metadata: engine::models::FileMetadata {
-                                                id: None,
-                                                name: sc.name.clone(),
-                                                extension: String::new(),
-                                                parent_folder: format!("{} (Website Shortcut)", sc.url),
-                                                full_path: sc.url.clone(),
-                                                modified_date: 0,
-                                                size: 0,
-                                                file_type: engine::models::FileType::Shortcut,
-                                            },
-                                            score: 0.85,
-                                            match_type: "WebShortcut".to_string(),
-                                            icon_base64: None,
-                                        });
-                                    } else if sc.name.to_lowercase().starts_with(&trimmed.to_lowercase()) {
-                                        shortcut_results.push(SearchResult {
-                                            metadata: engine::models::FileMetadata {
-                                                id: None,
-                                                name: sc.name.clone(),
-                                                extension: String::new(),
-                                                parent_folder: format!("{} (Website Shortcut)", sc.url),
-                                                full_path: sc.url.clone(),
-                                                modified_date: 0,
-                                                size: 0,
-                                                file_type: engine::models::FileType::Shortcut,
-                                            },
-                                            score: 0.80,
-                                            match_type: "WebShortcut".to_string(),
-                                            icon_base64: None,
-                                        });
-                                    }
-                                }
-                            }
-
-                            // Log search results summary for diagnostics
-                            info!("Normalized query: '{}', matched {} candidates", parsed_query.raw, results.len());
-
-                            let rank_start = std::time::Instant::now();
-                            engine_c.ranking_engine.rank(&mut results, &parsed_query);
-                            let rank_time_us = rank_start.elapsed().as_micros() as f64 / 1000.0;
-
-                            // Re-apply truncation and population (same as bridge search)
-                            let q_len = parsed_query.raw.len();
-                            let threshold = if q_len <= 2 { 0.2 } else if q_len <= 4 { 0.3 } else { 0.4 };
-                            results.retain(|r| r.score >= threshold);
-
-                            // Prepend shortcut matches ahead of normal files
-                            if !shortcut_results.is_empty() {
-                                results.splice(0..0, shortcut_results);
-                            }
-
-                            results.truncate(15);
-
-                            for r in &mut results {
-                                if r.match_type != "WebShortcut" && r.match_type != "KillProcess" {
-                                    r.icon_base64 = Some(engine::utilities::get_icon_cached(&r.metadata));
-                                }
-                            }
-
-                            engine_c.cache.insert(&query, matched_files, results.clone());
-
+                            let (results, search_time_ms, rank_time_ms) = engine_c.search_with_metrics(&query);
                             let results_json = serde_json::to_string(&results).unwrap_or_else(|_| "[]".to_string());
 
                             let debug_json = if cfg!(debug_assertions) {
@@ -725,8 +586,8 @@ async fn main() {
                                 let mem_mb = mem_bytes as f64 / (1024.0 * 1024.0);
                                 let info = serde_json::json!({
                                     "files_count": engine_c.total_files(),
-                                    "search_time_ms": search_time_us,
-                                    "rank_time_ms": rank_time_us,
+                                    "search_time_ms": search_time_ms,
+                                    "rank_time_ms": rank_time_ms,
                                     "cache_hits": engine_c.cache.hits.load(Ordering::SeqCst),
                                     "cache_misses": engine_c.cache.misses.load(Ordering::SeqCst),
                                     "memory_mb": mem_mb,
@@ -756,7 +617,28 @@ async fn main() {
                         }
                     }
                     UserEvent::SelectRequest { query, path } => {
-                        if path == "kill_cmd_hint" {
+                        if path == "kill_cmd_hint" || path == "clipboard_empty_hint" || path == "win_cmd_hint" {
+                            return;
+                        }
+                        if let Some(copy_text) = path.strip_prefix("copy:") {
+                            let text_owned = copy_text.to_string();
+                            let proxy = event_loop_proxy.clone();
+                            tokio::task::spawn_blocking(move || {
+                                let res = engine::clipboard::copy_to_clipboard(&text_owned);
+                                let (success, message) = match res {
+                                    Ok(_) => (true, "Copied to clipboard!".to_string()),
+                                    Err(e) => (false, format!("Clipboard error: {}", e)),
+                                };
+                                let _ = proxy.send_event(UserEvent::ProcessKilled { success, message });
+                            });
+                            return;
+                        }
+                        if let Some(hwnd_str) = path.strip_prefix("focus://") {
+                            if let Ok(hwnd) = hwnd_str.parse::<isize>() {
+                                tokio::task::spawn_blocking(move || {
+                                    let _ = engine::process::focus_window(hwnd);
+                                });
+                            }
                             return;
                         }
                         if path.starts_with("kill://") {
@@ -973,15 +855,20 @@ async fn main() {
                         });
                     }
                     UserEvent::CopyToClipboardRequest { text } => {
-                        info!("[Clipboard] Copying text: '{}'", text);
+                        info!("[Clipboard] Copying text ({} chars)", text.len());
                         tokio::task::spawn_blocking(move || {
-                            #[cfg(target_os = "windows")]
-                            use std::os::windows::process::CommandExt;
-                            const CREATE_NO_WINDOW: u32 = 0x08000000;
-                            let _ = std::process::Command::new("powershell")
-                                .args(["-NoProfile", "-Command", &format!("Set-Clipboard -Value '{}'", text.replace('\'', "''"))])
-                                .creation_flags(CREATE_NO_WINDOW)
-                                .output();
+                            if let Err(e) = engine::clipboard::copy_to_clipboard(&text) {
+                                warn!("Native clipboard copy failed ({}), falling back to PowerShell", e);
+                                #[cfg(target_os = "windows")]
+                                {
+                                    use std::os::windows::process::CommandExt;
+                                    const CREATE_NO_WINDOW: u32 = 0x08000000;
+                                    let _ = std::process::Command::new("powershell")
+                                        .args(["-NoProfile", "-Command", &format!("Set-Clipboard -Value '{}'", text.replace('\'', "''"))])
+                                        .creation_flags(CREATE_NO_WINDOW)
+                                        .output();
+                                }
+                            }
                         });
                     }
                     UserEvent::SystemCommandRequest { command } => {
@@ -997,7 +884,7 @@ async fn main() {
                         });
                     }
                     UserEvent::ResizeRequest { height } => {
-                        let clamped = height.max(80.0).min(800.0);
+                        let clamped = height.clamp(80.0, 800.0);
                         window.set_inner_size(LogicalSize::new(800.0, clamped));
                     }
                     UserEvent::HideWindow => {
@@ -1005,20 +892,24 @@ async fn main() {
                         window.set_visible(false);
                     }
                     UserEvent::TrayIcon(tray_event) => {
-                        match tray_event {
-                            tray_icon::TrayIconEvent::Click { button: tray_icon::MouseButton::Left, .. } => {
-                                let is_visible = window.is_visible();
-                                if is_visible {
-                                    let _ = webview.evaluate_script("hideLauncher()");
-                                } else {
-                                    unsafe {
-                                        center_window_on_active_monitor(&window);
-                                        force_set_foreground_window(&window);
-                                    }
-                                    let _ = webview.evaluate_script("showLauncher()");
+                        if let tray_icon::TrayIconEvent::Click {
+                            button: tray_icon::MouseButton::Left,
+                            ..
+                        } = tray_event
+                        {
+                            let is_visible = window.is_visible();
+                            if is_visible {
+                                let _ = webview.evaluate_script("hideLauncher()");
+                            } else {
+                                unsafe {
+                                    center_window_on_active_monitor(&window);
+                                    force_set_foreground_window(&window);
                                 }
+                                let _ = webview.evaluate_script("showLauncher()");
+                                tokio::task::spawn_blocking(move || {
+                                    engine::clipboard::sync_system_clipboard();
+                                });
                             }
-                            _ => {}
                         }
                     }
                     UserEvent::MenuEvent(menu_event) => {
@@ -1028,6 +919,9 @@ async fn main() {
                                 force_set_foreground_window(&window);
                             }
                             let _ = webview.evaluate_script("showLauncher()");
+                            tokio::task::spawn_blocking(move || {
+                                engine::clipboard::sync_system_clipboard();
+                            });
                         } else if menu_event.id == settings_item_id {
                             unsafe {
                                 center_window_on_active_monitor(&window);
@@ -1209,9 +1103,17 @@ async fn main() {
                         let _ = webview.evaluate_script(&script);
                     }
                     UserEvent::ExecuteSettingRequest { action } => {
+                        let proxy = event_loop_proxy.clone();
                         tokio::task::spawn_blocking(move || {
-                            if let Err(e) = engine::windows_settings::execute_setting(&action) {
-                                warn!("Failed to execute setting '{}': {}", action, e);
+                            match engine::windows_settings::execute_setting(&action) {
+                                Ok(Some(msg)) => {
+                                    let _ = proxy.send_event(UserEvent::ProcessKilled { success: true, message: msg });
+                                }
+                                Ok(None) => {}
+                                Err(e) => {
+                                    warn!("Failed to execute setting '{}': {}", action, e);
+                                    let _ = proxy.send_event(UserEvent::ProcessKilled { success: false, message: e });
+                                }
                             }
                         });
                     }
@@ -1228,7 +1130,23 @@ fn launch_file(path: &str) {
         return;
     }
     info!("[Launch] Request to execute: '{}'", path);
-    if path.starts_with("action:") || path.starts_with("ms-settings:") {
+    if let Some(copy_text) = path.strip_prefix("copy:") {
+        let _ = engine::clipboard::copy_to_clipboard(copy_text);
+        return;
+    }
+    if let Some(hwnd_str) = path.strip_prefix("focus://") {
+        if let Ok(hwnd) = hwnd_str.parse::<isize>() {
+            let _ = engine::process::focus_window(hwnd);
+        }
+        return;
+    }
+    if path.starts_with("action:")
+        || path.starts_with("ms-settings:")
+        || path.starts_with("ms-screenclip:")
+        || (path.starts_with("shell:") && !path.starts_with("shell:AppsFolder\\"))
+        || path.ends_with(".msc")
+        || path.contains(".cpl")
+    {
         if let Err(e) = engine::windows_settings::execute_setting(path) {
             warn!("Failed to execute setting '{}': {}", path, e);
         }
@@ -1428,10 +1346,7 @@ fn parse_hotkey_str(s: &str) -> Option<HotKey> {
         }
     }
 
-    let c = match code {
-        Some(c) => c,
-        None => return None,
-    };
+    let c = code?;
 
     let is_f_key = matches!(
         c,

@@ -28,13 +28,7 @@ impl SearchEngine {
 
         let raw_query = &query.raw;
 
-        // 2. Check exact cache hit (backspace or duplicate queries)
-        if let Some(cached_results) = self.cache.get_exact(raw_query) {
-            let files = cached_results.iter().map(|r| r.metadata.clone()).collect();
-            return (cached_results, files);
-        }
-
-        // 3. Determine search candidate files (use subset cache if available to reduce space)
+        // 2. Determine search candidate files (use subset cache if available to reduce space)
         let mut results = Vec::new();
         let mut matched_files = Vec::new();
 

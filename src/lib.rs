@@ -20,6 +20,9 @@ pub mod process;
 pub mod fs_ops;
 pub mod media_control;
 pub mod windows_settings;
+pub mod calculator;
+pub mod quick_tools;
+pub mod clipboard;
 
 // Re-export major structs for convenience
 pub use crate::models::{FileMetadata, FileType, SearchQuery, SearchResult};

@@ -6,13 +6,16 @@ use windows::Win32::System::Threading::{
     PROCESS_TERMINATE,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
-    EnumWindows, GetWindow, GetWindowLongW, GetWindowRect, GetWindowTextLengthW, GetWindowTextW,
-    GetWindowThreadProcessId, IsWindowVisible, GWL_EXSTYLE, GW_OWNER, WS_EX_TOOLWINDOW,
+    BringWindowToTop, EnumWindows, GetWindow, GetWindowLongW, GetWindowRect, GetWindowTextLengthW,
+    GetWindowTextW, GetWindowThreadProcessId, IsIconic, IsWindow, IsWindowVisible,
+    SetForegroundWindow, ShowWindow, GWL_EXSTYLE, GW_OWNER, SW_RESTORE, SW_SHOW, WS_EX_TOOLWINDOW,
 };
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct RunningProcess {
     pub pid: u32,
+    #[serde(default)]
+    pub hwnd: isize,
     pub name: String,
     pub title: String,
     pub exe_path: Option<String>,
@@ -64,6 +67,7 @@ pub fn is_blacklisted_process(name: &str) -> bool {
 
 struct EnumState {
     current_pid: u32,
+    dedup_by_pid: bool,
     processes: Vec<RunningProcess>,
 }
 
@@ -88,10 +92,12 @@ unsafe extern "system" fn enum_windows_proc(hwnd: HWND, lparam: LPARAM) -> BOOL 
         }
     }
 
-    // 4. Must have a non-zero rectangular size
-    let mut rect = RECT::default();
-    if GetWindowRect(hwnd, &mut rect).is_ok() {
-        if (rect.right - rect.left) <= 0 || (rect.bottom - rect.top) <= 0 {
+    // 4. Must have a non-zero rectangular size (unless minimized/iconic)
+    if !IsIconic(hwnd).as_bool() {
+        let mut rect = RECT::default();
+        if GetWindowRect(hwnd, &mut rect).is_ok()
+            && ((rect.right - rect.left) <= 0 || (rect.bottom - rect.top) <= 0)
+        {
             return BOOL(1);
         }
     }
@@ -125,8 +131,12 @@ unsafe extern "system" fn enum_windows_proc(hwnd: HWND, lparam: LPARAM) -> BOOL 
         return BOOL(1);
     }
 
-    // If we already have this PID, don't duplicate
-    if state.processes.iter().any(|p| p.pid == pid) {
+    // Deduplicate by PID for process killing, or by HWND for window switching
+    if state.dedup_by_pid {
+        if state.processes.iter().any(|p| p.pid == pid) {
+            return BOOL(1);
+        }
+    } else if state.processes.iter().any(|p| p.hwnd == hwnd.0 as isize) {
         return BOOL(1);
     }
 
@@ -137,6 +147,7 @@ unsafe extern "system" fn enum_windows_proc(hwnd: HWND, lparam: LPARAM) -> BOOL 
 
     state.processes.push(RunningProcess {
         pid,
+        hwnd: hwnd.0 as isize,
         name: proc_name,
         title,
         exe_path,
@@ -176,11 +187,12 @@ pub fn get_process_name(pid: u32) -> String {
     get_process_info(pid).0
 }
 
-/// Lists running user applications with visible top-level windows.
+/// Lists running user applications with visible top-level windows (deduplicated by PID).
 pub fn get_running_user_applications() -> Vec<RunningProcess> {
     let current_pid = unsafe { GetCurrentProcessId() };
     let mut state = EnumState {
         current_pid,
+        dedup_by_pid: true,
         processes: Vec::new(),
     };
 
@@ -191,9 +203,48 @@ pub fn get_running_user_applications() -> Vec<RunningProcess> {
         );
     }
 
-    // Sort by name case-insensitive
-    state.processes.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    state.processes.sort_by_key(|a| a.name.to_lowercase());
     state.processes
+}
+
+/// Lists all open top-level user windows (preserving multiple windows per application).
+pub fn get_open_windows() -> Vec<RunningProcess> {
+    let current_pid = unsafe { GetCurrentProcessId() };
+    let mut state = EnumState {
+        current_pid,
+        dedup_by_pid: false,
+        processes: Vec::new(),
+    };
+
+    unsafe {
+        let _ = EnumWindows(
+            Some(enum_windows_proc),
+            LPARAM(&mut state as *mut _ as isize),
+        );
+    }
+
+    state.processes
+}
+
+/// Restores (if minimized) and brings the specified window handle to the foreground.
+pub fn focus_window(hwnd_val: isize) -> Result<(), String> {
+    if hwnd_val == 0 {
+        return Err("Invalid window handle".to_string());
+    }
+    let hwnd = HWND(hwnd_val as *mut _);
+    unsafe {
+        if !IsWindow(hwnd).as_bool() {
+            return Err("Window no longer exists".to_string());
+        }
+        if IsIconic(hwnd).as_bool() {
+            let _ = ShowWindow(hwnd, SW_RESTORE);
+        } else {
+            let _ = ShowWindow(hwnd, SW_SHOW);
+        }
+        let _ = BringWindowToTop(hwnd);
+        let _ = SetForegroundWindow(hwnd);
+    }
+    Ok(())
 }
 
 /// Safely terminates a process by PID with boundary and privilege checks.

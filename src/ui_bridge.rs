@@ -140,7 +140,7 @@ impl UIBridge {
                                     crate::models::FileType::Application
                                 } else if extension == "lnk" {
                                     if let Some(target) = crate::utilities::resolve_lnk(&path) {
-                                        if target.extension().map_or(false, |ext| ext == "exe") {
+                                        if target.extension().is_some_and(|ext| ext == "exe") {
                                             crate::models::FileType::Application
                                         } else {
                                             crate::models::FileType::Shortcut
@@ -228,7 +228,7 @@ impl UIBridge {
                                         crate::models::FileType::Application
                                     } else if extension == "lnk" {
                                         if let Some(target) = crate::utilities::resolve_lnk(&path) {
-                                            if target.extension().map_or(false, |ext| ext == "exe") {
+                                            if target.extension().is_some_and(|ext| ext == "exe") {
                                                 crate::models::FileType::Application
                                             } else {
                                                 crate::models::FileType::Shortcut
@@ -318,18 +318,166 @@ impl UIBridge {
     /// and returns results along with execution latency in microseconds.
     pub fn search(&self, raw_query: &str) -> (Vec<SearchResult>, u32) {
         let start_time = std::time::Instant::now();
+        let (results, _, _) = self.search_with_metrics(raw_query);
+        let latency_us = start_time.elapsed().as_micros() as u32;
+        (results, latency_us)
+    }
+
+    /// Unified search pipeline returning `(results, search_time_ms, rank_time_ms)`.
+    pub fn search_with_metrics(&self, raw_query: &str) -> (Vec<SearchResult>, f64, f64) {
+        let trimmed = raw_query.trim();
+        if trimmed.is_empty() {
+            return (Vec::new(), 0.0, 0.0);
+        }
+
+        let lower = trimmed.to_lowercase();
+
+        // 0a. Process Killer Command Workflow ("kill" or "kill <app>")
+        if lower == "kill" {
+            let results = vec![SearchResult {
+                metadata: crate::models::FileMetadata {
+                    id: None,
+                    name: "Kill Process".to_string(),
+                    extension: String::new(),
+                    parent_folder: "Type 'kill <app>' to search and terminate running apps".to_string(),
+                    full_path: "kill_cmd_hint".to_string(),
+                    modified_date: 0,
+                    size: 0,
+                    file_type: crate::models::FileType::Application,
+                },
+                score: 1.0,
+                match_type: "KillCommandHint".to_string(),
+                icon_base64: None,
+            }];
+            return (results, 0.0, 0.0);
+        } else if let Some(target_raw) = lower.strip_prefix("kill ") {
+            let target = target_raw.trim();
+            let procs = crate::process::get_running_user_applications();
+            let mut results = Vec::new();
+            for p in procs {
+                if target.is_empty()
+                    || p.name.to_lowercase().contains(target)
+                    || p.title.to_lowercase().contains(target)
+                {
+                    let icon_base64 = p
+                        .exe_path
+                        .as_deref()
+                        .and_then(crate::utilities::get_icon_from_exe_path);
+                    results.push(SearchResult {
+                        metadata: crate::models::FileMetadata {
+                            id: None,
+                            name: format!("{} (PID: {})", p.name, p.pid),
+                            extension: String::new(),
+                            parent_folder: format!("{} — Terminate Application", p.title),
+                            full_path: format!("kill://{}", p.pid),
+                            modified_date: 0,
+                            size: 0,
+                            file_type: crate::models::FileType::Application,
+                        },
+                        score: 1.0,
+                        match_type: "KillProcess".to_string(),
+                        icon_base64,
+                    });
+                }
+            }
+            results.truncate(20);
+            return (results, 0.0, 0.0);
+        }
+
+        // 0b. Window Switcher Command Workflow ("win" or "win <window/app>")
+        if lower == "win" || lower.starts_with("win ") {
+            let target = lower.strip_prefix("win").unwrap_or("").trim();
+            let windows = crate::process::get_open_windows();
+            let mut results = Vec::new();
+            for w in windows {
+                if target.is_empty()
+                    || w.name.to_lowercase().contains(target)
+                    || w.title.to_lowercase().contains(target)
+                {
+                    let icon_base64 = w
+                        .exe_path
+                        .as_deref()
+                        .and_then(crate::utilities::get_icon_from_exe_path);
+                    results.push(SearchResult {
+                        metadata: crate::models::FileMetadata {
+                            id: None,
+                            name: w.title.clone(),
+                            extension: "SwitchWindow".to_string(),
+                            parent_folder: format!("{} (PID: {}) — Switch to Window", w.name, w.pid),
+                            full_path: format!("focus://{}", w.hwnd),
+                            modified_date: 0,
+                            size: 0,
+                            file_type: crate::models::FileType::Application,
+                        },
+                        score: 1.0,
+                        match_type: "SwitchWindow".to_string(),
+                        icon_base64,
+                    });
+                }
+            }
+            if results.is_empty() {
+                results.push(SearchResult {
+                    metadata: crate::models::FileMetadata {
+                        id: None,
+                        name: if target.is_empty() {
+                            "No open windows found".to_string()
+                        } else {
+                            format!("No open window matching \"{}\"", target)
+                        },
+                        extension: "SwitchWindow".to_string(),
+                        parent_folder: "Window Switcher • Type 'win' to list open windows".to_string(),
+                        full_path: "win_cmd_hint".to_string(),
+                        modified_date: 0,
+                        size: 0,
+                        file_type: crate::models::FileType::Shortcut,
+                    },
+                    score: 1.0,
+                    match_type: "WindowCommandHint".to_string(),
+                    icon_base64: None,
+                });
+            }
+            results.truncate(15);
+            return (results, 0.0, 0.0);
+        }
+
+        // 0c. Clipboard History Command Workflow ("clip", "clipboard", "cb", "clip <query>")
+        if lower != "clipboard settings" {
+            if let Some(mut clip_results) = crate::clipboard::search_clipboard_query(trimmed) {
+                let setting_matches = crate::windows_settings::search_settings(trimmed);
+                clip_results.extend(setting_matches);
+                clip_results.truncate(15);
+                return (clip_results, 0.0, 0.0);
+            }
+        }
+
+        // Check if query triggers a dynamic non-deterministic generator (UUID, timestamp, password, coin, dice)
+        let is_dynamic_tool = crate::quick_tools::is_dynamic_query(trimmed);
+
+        // Exact cache hit check (fast path for backspacing or repeated queries)
+        if !is_dynamic_tool {
+            if let Some(cached) = self.cache.get_exact(trimmed) {
+                return (cached, 0.01, 0.0);
+            }
+        }
+
+        let search_start = std::time::Instant::now();
         let query = crate::query_parser::parse_query(raw_query);
 
-        // 1. Execute Search (leveraging prefix subset cache if available)
+        // 1. Execute File Search (leveraging prefix subset cache if available)
         let (mut results, matched_files) = self.search_engine.search(&query);
+        let search_time_ms = search_start.elapsed().as_micros() as f64 / 1000.0;
 
-        // 2. Score and Sort matching results
+        // 2. Score and Sort matching file results
+        let rank_start = std::time::Instant::now();
         self.ranking_engine.rank(&mut results, &query);
+        let rank_time_ms = rank_start.elapsed().as_micros() as f64 / 1000.0;
 
         // 2b. Deduplicate applications and shortcuts by normalized name so the UI never renders duplicate apps
         let mut seen_apps = std::collections::HashSet::new();
         results.retain(|r| {
-            if r.metadata.file_type == crate::models::FileType::Application || r.metadata.file_type == crate::models::FileType::Shortcut {
+            if r.metadata.file_type == crate::models::FileType::Application
+                || r.metadata.file_type == crate::models::FileType::Shortcut
+            {
                 let name_key = r.metadata.name.to_lowercase().trim().to_string();
                 if seen_apps.contains(&name_key) {
                     false
@@ -353,36 +501,115 @@ impl UIBridge {
         };
         results.retain(|r| r.score >= threshold);
 
-        // 3b. Search Windows Settings & Quick Actions
-        let setting_results = crate::windows_settings::search_settings(raw_query);
-        if !setting_results.is_empty() {
-            let mut merged = Vec::with_capacity(setting_results.len() + results.len());
-            // High-confidence settings (score >= 0.8) go first
-            let (high_settings, other_settings): (Vec<_>, Vec<_>) = setting_results
-                .into_iter()
-                .partition(|s| s.score >= 0.8);
-            
-            merged.extend(high_settings);
-            merged.extend(results);
-            merged.extend(other_settings);
-            results = merged;
-        }
+        // 3a. Evaluate Instant Calculator & Unit Conversions
+        let calc_result = crate::calculator::evaluate_query(trimmed);
 
-        // 4. Hard Limit at 15 results
-        results.truncate(15);
+        // 3b. Evaluate Quick Developer & Productivity Tools
+        let tool_results = crate::quick_tools::evaluate_quick_tool(trimmed);
 
-        // 5. Populate Base64 icon strings for top 15 results (cached)
-        for r in &mut results {
-            if r.match_type != "WindowsSetting" {
-                r.icon_base64 = Some(crate::utilities::get_icon_cached(&r.metadata));
+        // 3c. Website Shortcuts Matching
+        let mut exact_shortcuts = Vec::new();
+        let mut prefix_shortcuts = Vec::new();
+        {
+            let cfg = self.get_config();
+            for sc in &cfg.web_shortcuts {
+                if sc.alias.eq_ignore_ascii_case(trimmed) {
+                    exact_shortcuts.push(SearchResult {
+                        metadata: crate::models::FileMetadata {
+                            id: None,
+                            name: sc.name.clone(),
+                            extension: String::new(),
+                            parent_folder: format!("{} (Website Shortcut)", sc.url),
+                            full_path: sc.url.clone(),
+                            modified_date: 0,
+                            size: 0,
+                            file_type: crate::models::FileType::Shortcut,
+                        },
+                        score: 1.0,
+                        match_type: "WebShortcut".to_string(),
+                        icon_base64: None,
+                    });
+                } else if sc.alias.to_lowercase().starts_with(&lower)
+                    || (lower.len() >= 2 && sc.name.to_lowercase().starts_with(&lower))
+                {
+                    prefix_shortcuts.push(SearchResult {
+                        metadata: crate::models::FileMetadata {
+                            id: None,
+                            name: sc.name.clone(),
+                            extension: String::new(),
+                            parent_folder: format!("{} (Website Shortcut)", sc.url),
+                            full_path: sc.url.clone(),
+                            modified_date: 0,
+                            size: 0,
+                            file_type: crate::models::FileType::Shortcut,
+                        },
+                        score: 0.85,
+                        match_type: "WebShortcut".to_string(),
+                        icon_base64: None,
+                    });
+                }
             }
         }
 
-        // 6. Update Result Cache with all matching candidates and top 15 final results
-        self.cache.insert(raw_query, matched_files, results.clone());
+        // 3d. Search Windows Settings, Quick Actions & System Tools
+        let setting_results = crate::windows_settings::search_settings(trimmed);
+        let (high_settings, other_settings): (Vec<_>, Vec<_>) = setting_results
+            .into_iter()
+            .partition(|s| s.score >= 0.92);
 
-        let latency_us = start_time.elapsed().as_micros() as u32;
-        (results, latency_us)
+        // Merge all sources in priority order
+        let mut merged = Vec::with_capacity(
+            1 + tool_results.len()
+                + exact_shortcuts.len()
+                + high_settings.len()
+                + prefix_shortcuts.len()
+                + results.len()
+                + other_settings.len(),
+        );
+
+        if let Some(calc) = calc_result {
+            merged.push(calc);
+        }
+        merged.extend(tool_results);
+        merged.extend(exact_shortcuts);
+        merged.extend(high_settings);
+        merged.extend(prefix_shortcuts);
+        merged.extend(results);
+        merged.extend(other_settings);
+
+        let mut results = merged;
+
+        // 4. Hard Limit at 15 results
+        let max_res = self.get_config().max_results.clamp(5, 30);
+        results.truncate(max_res);
+
+        // 5. Populate Base64 icon strings for file/app results (cached)
+        for r in &mut results {
+            if matches!(
+                r.match_type.as_str(),
+                "WindowsSetting"
+                    | "WebShortcut"
+                    | "Calculator"
+                    | "UnitConversion"
+                    | "QuickTool"
+                    | "ClipboardItem"
+                    | "ClipboardHint"
+                    | "SwitchWindow"
+                    | "WindowCommandHint"
+                    | "KillProcess"
+                    | "KillCommandHint"
+            ) {
+                continue;
+            }
+            r.icon_base64 = Some(crate::utilities::get_icon_cached(&r.metadata));
+        }
+
+        // 6. Update Result Cache with matching file candidates and final merged results
+        if !is_dynamic_tool {
+            self.cache.insert(raw_query, matched_files, results.clone());
+        }
+
+        (results, search_time_ms, rank_time_ms)
     }
 
     /// Logs result selection to learning engine cache and storage.
@@ -577,6 +804,148 @@ mod tests {
         assert_eq!(bridge.index.len(), 1);
         assert_eq!(bridge.index.get_all()[0].name, "keep.txt");
         assert!(bridge.get_config().excluded_paths.iter().any(|p| p == "C:\\drop_folder"));
+
+        let _ = std::fs::remove_dir_all(&temp_dir);
+    }
+
+    #[tokio::test]
+    async fn test_ui_bridge_unified_search_features() {
+        let temp_dir = std::env::temp_dir().join(format!(
+            "kelp_test_unified_{}",
+            std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()
+        ));
+        let db_path = temp_dir.join("test.db");
+        let storage = Storage::new(&db_path).unwrap();
+        let files = vec![
+            FileMetadata {
+                id: None,
+                name: "report.pdf".to_string(),
+                extension: "pdf".to_string(),
+                parent_folder: "C:\\Docs".to_string(),
+                full_path: "C:\\Docs\\report.pdf".to_string(),
+                modified_date: 1700000000,
+                size: 1024,
+                file_type: crate::models::FileType::File,
+            },
+            FileMetadata {
+                id: None,
+                name: "notes.txt".to_string(),
+                extension: "txt".to_string(),
+                parent_folder: "C:\\Docs".to_string(),
+                full_path: "C:\\Docs\\notes.txt".to_string(),
+                modified_date: 1700000000,
+                size: 512,
+                file_type: crate::models::FileType::File,
+            },
+            FileMetadata {
+                id: None,
+                name: "Visual Studio Code.lnk".to_string(),
+                extension: "lnk".to_string(),
+                parent_folder: "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs".to_string(),
+                full_path: "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Visual Studio Code.lnk".to_string(),
+                modified_date: 1700000000,
+                size: 1024,
+                file_type: crate::models::FileType::Shortcut,
+            },
+            FileMetadata {
+                id: None,
+                name: "Explorer.exe".to_string(),
+                extension: "exe".to_string(),
+                parent_folder: "C:\\Windows".to_string(),
+                full_path: "C:\\Windows\\Explorer.exe".to_string(),
+                modified_date: 1700000000,
+                size: 2048,
+                file_type: crate::models::FileType::Application,
+            },
+        ];
+        let index = Arc::new(MemoryIndex::new(files));
+        let cache = Arc::new(ResultCache::new());
+        let learning = Arc::new(LearningEngine::new(storage.clone()));
+        let search_engine = SearchEngine::new(Arc::clone(&index), Arc::clone(&cache));
+        let ranking_engine = RankingEngine::default_config(Arc::clone(&learning));
+        let config = crate::config::AppConfig::default();
+
+        let bridge = UIBridge {
+            _storage: storage,
+            learning,
+            index,
+            cache,
+            search_engine,
+            ranking_engine,
+            _watcher: None,
+            config: RwLock::new(config),
+            is_indexing: Arc::new(std::sync::atomic::AtomicBool::new(false)),
+        };
+
+        // 1. Natural language Windows action: "change theme to light mode"
+        let (res_light, _) = bridge.search("change theme to light mode");
+        assert!(!res_light.is_empty(), "Expected WindowsSetting match for 'change theme to light mode'");
+        assert_eq!(res_light[0].match_type, "WindowsSetting");
+        assert_eq!(res_light[0].metadata.full_path, "action:set_light_mode");
+
+        // 1b. Negated natural language Windows action: "turn off dark mode" -> Light Mode
+        let (res_neg_dark, _) = bridge.search("turn off dark mode");
+        assert!(!res_neg_dark.is_empty());
+        assert_eq!(res_neg_dark[0].metadata.full_path, "action:set_light_mode");
+
+        // 2. Natural language Windows action: "switch to dark mode"
+        let (res_dark, _) = bridge.search("switch to dark mode");
+        assert!(!res_dark.is_empty());
+        assert_eq!(res_dark[0].metadata.full_path, "action:set_dark_mode");
+
+        // 3. Calculator: "25 * 4 + 10"
+        let (res_calc, _) = bridge.search("25 * 4 + 10");
+        assert!(!res_calc.is_empty());
+        assert_eq!(res_calc[0].match_type, "Calculator");
+        assert_eq!(res_calc[0].metadata.name, "= 110");
+        assert_eq!(res_calc[0].metadata.full_path, "copy:110");
+
+        // 4. Unit conversion: "100 km in miles"
+        let (res_unit, _) = bridge.search("100 km in miles");
+        assert!(!res_unit.is_empty());
+        assert_eq!(res_unit[0].match_type, "UnitConversion");
+        assert!(res_unit[0].metadata.name.contains("62.1371"));
+
+        // 5. Quick tool: "base64 encode kelp"
+        let (res_b64, _) = bridge.search("base64 encode kelp");
+        assert!(!res_b64.is_empty());
+        assert_eq!(res_b64[0].match_type, "QuickTool");
+        assert_eq!(res_b64[0].metadata.name, "a2VscA==");
+
+        // 6. Prefix cache poisoning regression check: ".pd" (generic) -> ".pdf" (semantic extension)
+        let _ = bridge.search(".pd");
+        let (res_pdf, _) = bridge.search(".pdf");
+        assert!(
+            res_pdf.iter().any(|r| r.metadata.name == "report.pdf"),
+            "Expected '.pdf' to match report.pdf even after '.pd' was cached"
+        );
+
+        // 7. Short prefix query "co" ranks application (Visual Studio Code) above prefix-matched settings
+        let (res_co, _) = bridge.search("co");
+        assert!(!res_co.is_empty());
+        assert_eq!(
+            res_co[0].metadata.name, "Visual Studio Code.lnk",
+            "Expected app match to rank #1 for short prefix 'co', got {:?}",
+            res_co[0].metadata.name
+        );
+
+        // 8. Single-char query "e" ranks Explorer.exe #1 instead of Euler's constant
+        let (res_e, _) = bridge.search("e");
+        assert!(!res_e.is_empty());
+        assert_ne!(res_e[0].match_type, "Calculator");
+        assert_eq!(res_e[0].metadata.name, "Explorer.exe");
+
+        // 9. Dynamic tool "pw" bypasses cache and generates fresh passwords on repeated calls
+        let (pw1, _) = bridge.search("pw");
+        let (pw2, _) = bridge.search("pw");
+        assert_eq!(pw1[0].match_type, "QuickTool");
+        assert_ne!(pw1[0].metadata.name, pw2[0].metadata.name);
+
+        // 10. Window switcher with unmatched target returns WindowCommandHint instead of empty vec
+        let (win_empty, _) = bridge.search("win __nonexistent_window_99999__");
+        assert_eq!(win_empty.len(), 1);
+        assert_eq!(win_empty[0].match_type, "WindowCommandHint");
+        assert_eq!(win_empty[0].metadata.full_path, "win_cmd_hint");
 
         let _ = std::fs::remove_dir_all(&temp_dir);
     }
